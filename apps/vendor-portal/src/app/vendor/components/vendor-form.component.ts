@@ -1,27 +1,32 @@
 import { CommonModule } from "@angular/common";
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import {
-  FormArray,
   FormBuilder,
   FormGroup,
   ReactiveFormsModule,
   Validators,
 } from "@angular/forms";
+import { RouterLink } from "@angular/router";
 import {
   ContactStatus,
   PaymentType,
   VendorCategory,
 } from "@fulfilus/shared";
 import { Subject, takeUntil } from "rxjs";
+import { GoogleMapsService } from "../../core/google-maps.service";
 import { VendorService } from "../services/vendor.service";
 
 @Component({
   selector: "app-vendor-form",
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink],
   template: `
-    <form [formGroup]="form" (ngSubmit)="submit()" class="vendor-form">
+    <div class="page-header">
       <h2>Vendor Onboarding</h2>
+      <a routerLink="/admin" class="btn-secondary">Admin View</a>
+    </div>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" class="vendor-form">
 
       <!-- Basic Info -->
       <section>
@@ -32,7 +37,7 @@ import { VendorService } from "../services/vendor.service";
           <textarea formControlName="shopDetails" placeholder="Additional details"></textarea>
         </label>
         <label>Location *
-          <input formControlName="location" placeholder="Full address" />
+          <input #locationInput formControlName="location" placeholder="Start typing address..." autocomplete="off" />
         </label>
         <label>WhatsApp Number *
           <input formControlName="whatsappNumber" placeholder="+91XXXXXXXXXX" />
@@ -45,7 +50,7 @@ import { VendorService } from "../services/vendor.service";
       <!-- Voice Input -->
       <section>
         <button type="button" (click)="toggleVoice()">
-          {{ isListening ? 'Stop Voice' : 'Voice Input' }}
+          {{ isListening ? 'Stop Voice' : 'Voice Input (Notes)' }}
         </button>
         <span *ngIf="isListening" class="listening-indicator">Listening...</span>
         <small *ngIf="voiceError" class="error">{{ voiceError }}</small>
@@ -62,12 +67,12 @@ import { VendorService } from "../services/vendor.service";
               (change)="toggleCategory($event, cat)"
               [checked]="isCategorySelected(cat)"
             />
-            {{ cat }}
+            {{ formatCategory(cat) }}
           </label>
         </div>
       </section>
 
-      <!-- Contact Status -->
+      <!-- Contact Status + Notes -->
       <section>
         <label>Contacted?
           <select formControlName="contactStatus">
@@ -76,7 +81,7 @@ import { VendorService } from "../services/vendor.service";
           </select>
         </label>
         <label>Notes
-          <textarea formControlName="notes" placeholder="Internal notes"></textarea>
+          <textarea formControlName="notes" placeholder="Internal notes (supports voice input)"></textarea>
         </label>
       </section>
 
@@ -88,7 +93,7 @@ import { VendorService } from "../services/vendor.service";
         <img *ngIf="photoPreview" [src]="photoPreview" class="photo-preview" alt="Shop preview" />
       </section>
 
-      <!-- Payment Details -->
+      <!-- Payment -->
       <section formGroupName="payment">
         <label>Payment Type
           <select formControlName="type">
@@ -97,8 +102,8 @@ import { VendorService } from "../services/vendor.service";
             <option [value]="PaymentType.BANK_ACCOUNT">Bank Account</option>
           </select>
         </label>
-        <label>Payment Value
-          <input formControlName="value" placeholder="UPI ID / Phone / Account No" />
+        <label>Payment Value (UPI ID / Phone / Account No)
+          <input formControlName="value" />
         </label>
       </section>
 
@@ -122,7 +127,9 @@ import { VendorService } from "../services/vendor.service";
     </form>
   `,
 })
-export class VendorFormComponent implements OnInit, OnDestroy {
+export class VendorFormComponent implements OnInit, AfterViewInit, OnDestroy {
+  @ViewChild("locationInput") locationInputRef!: ElementRef<HTMLInputElement>;
+
   form!: FormGroup;
   allCategories = Object.values(VendorCategory);
   ContactStatus = ContactStatus;
@@ -142,6 +149,7 @@ export class VendorFormComponent implements OnInit, OnDestroy {
   constructor(
     private readonly fb: FormBuilder,
     private readonly vendorService: VendorService,
+    private readonly mapsService: GoogleMapsService,
   ) {}
 
   ngOnInit() {
@@ -149,18 +157,12 @@ export class VendorFormComponent implements OnInit, OnDestroy {
       shopName: ["", Validators.required],
       shopDetails: [""],
       location: ["", Validators.required],
-      whatsappNumber: [
-        "",
-        [Validators.required, Validators.pattern(/^\+?[1-9]\d{9,14}$/)],
-      ],
+      whatsappNumber: ["", [Validators.required, Validators.pattern(/^\+?[1-9]\d{9,14}$/)]],
       gstNumber: [""],
       contactStatus: [ContactStatus.NOT_CONTACTED, Validators.required],
       notes: [""],
       categories: [[], Validators.required],
-      payment: this.fb.group({
-        type: [PaymentType.QR_CODE],
-        value: [""],
-      }),
+      payment: this.fb.group({ type: [PaymentType.QR_CODE], value: [""] }),
       bankAccount: this.fb.group({
         accountNumber: [""],
         ifscCode: [""],
@@ -170,19 +172,38 @@ export class VendorFormComponent implements OnInit, OnDestroy {
     });
   }
 
+  ngAfterViewInit() {
+    this.mapsService.load().then(() => {
+      const autocomplete = new google.maps.places.Autocomplete(
+        this.locationInputRef.nativeElement,
+        { types: ["establishment", "geocode"], fields: ["formatted_address", "name", "geometry"] },
+      );
+      autocomplete.addListener("place_changed", () => {
+        const place = autocomplete.getPlace();
+        const address = place.formatted_address ?? place.name ?? "";
+        this.form.patchValue({ location: address });
+      });
+    }).catch(() => {
+      // Maps unavailable — manual input still works
+    });
+  }
+
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
     this.recognition?.stop();
   }
 
+  formatCategory(cat: string): string {
+    return cat.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+  }
+
   toggleCategory(event: Event, category: VendorCategory) {
     const current: VendorCategory[] = this.form.value.categories ?? [];
     const checked = (event.target as HTMLInputElement).checked;
-    const updated = checked
-      ? [...current, category]
-      : current.filter((c) => c !== category);
-    this.form.patchValue({ categories: updated });
+    this.form.patchValue({
+      categories: checked ? [...current, category] : current.filter(c => c !== category),
+    });
   }
 
   isCategorySelected(category: VendorCategory): boolean {
@@ -194,9 +215,7 @@ export class VendorFormComponent implements OnInit, OnDestroy {
     if (!file) return;
     this.selectedPhoto = file;
     const reader = new FileReader();
-    reader.onload = (e) => {
-      this.photoPreview = e.target?.result as string;
-    };
+    reader.onload = e => { this.photoPreview = e.target?.result as string; };
     reader.readAsDataURL(file);
   }
 
@@ -219,13 +238,8 @@ export class VendorFormComponent implements OnInit, OnDestroy {
       const current = this.form.value.notes ?? "";
       this.form.patchValue({ notes: `${current} ${transcript}`.trim() });
     };
-    this.recognition.onerror = () => {
-      this.voiceError = "Voice recognition error.";
-      this.isListening = false;
-    };
-    this.recognition.onend = () => {
-      this.isListening = false;
-    };
+    this.recognition.onerror = () => { this.voiceError = "Voice recognition error."; this.isListening = false; };
+    this.recognition.onend = () => { this.isListening = false; };
     this.recognition.start();
     this.isListening = true;
     this.voiceError = "";
@@ -237,27 +251,20 @@ export class VendorFormComponent implements OnInit, OnDestroy {
     this.successMessage = "";
     this.errorMessage = "";
 
-    this.vendorService
-      .create(this.form.value)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (vendor) => {
-          if (this.selectedPhoto) {
-            this.vendorService
-              .uploadPhoto(vendor.id, this.selectedPhoto)
-              .pipe(takeUntil(this.destroy$))
-              .subscribe();
-          }
-          this.successMessage = `Vendor "${vendor.shopName}" saved.`;
-          this.form.reset();
-          this.photoPreview = null;
-          this.submitting = false;
-        },
-        error: (err: unknown) => {
-          this.errorMessage =
-            err instanceof Error ? err.message : "Failed to save vendor.";
-          this.submitting = false;
-        },
-      });
+    this.vendorService.create(this.form.value).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (vendor) => {
+        if (this.selectedPhoto) {
+          this.vendorService.uploadPhoto(vendor.id, this.selectedPhoto).pipe(takeUntil(this.destroy$)).subscribe();
+        }
+        this.successMessage = `Vendor "${vendor.shopName}" saved.`;
+        this.form.reset();
+        this.photoPreview = null;
+        this.submitting = false;
+      },
+      error: (err: unknown) => {
+        this.errorMessage = err instanceof Error ? err.message : "Failed to save vendor.";
+        this.submitting = false;
+      },
+    });
   }
 }

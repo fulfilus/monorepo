@@ -1,10 +1,10 @@
 import { Component } from "@angular/core";
-import { VendorFormComponent } from "./vendor/components/vendor-form.component";
+import { RouterOutlet } from "@angular/router";
 
 @Component({
   selector: "app-root",
   standalone: true,
-  imports: [VendorFormComponent],
-  template: `<app-vendor-form />`,
+  imports: [RouterOutlet],
+  template: `<router-outlet />`,
 })
 export class AppComponent {}
