@@ -15,6 +15,10 @@
       "@fulfilus/shared": ["../../packages/shared/src"]
     }
   },
+  "ts-node": {
+    "esm": false,
+    "experimentalSpecifierResolution": "node"
+  },
   "include": ["src/**/*"],
   "references": [{ "path": "../../packages/shared" }]
 }
