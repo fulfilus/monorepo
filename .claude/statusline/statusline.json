@@ -1,0 +1,20 @@
+{
+  "enabled": true,
+  "format": "[{branch}] {status} | {model}",
+  "components": {
+    "branch": {
+      "source": "git",
+      "command": "git branch --show-current"
+    },
+    "status": {
+      "source": "git",
+      "command": "git status --short | wc -l | tr -d ' '",
+      "prefix": "Δ"
+    },
+    "model": {
+      "source": "session",
+      "field": "model"
+    }
+  },
+  "refresh": "on-change"
+}

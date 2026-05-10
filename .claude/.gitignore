@@ -1,0 +1,13 @@
+# Local/personal files (not shared with team)
+claude.local.md
+settings.local.json
+
+# MCP credentials and secrets
+.mcp.json
+
+# Hook logs
+hooks/*.log
+
+# OS files
+.DS_Store
+Thumbs.db

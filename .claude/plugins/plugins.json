@@ -1,0 +1,25 @@
+{
+  "plugins": [
+    {
+      "name": "auto-lint",
+      "description": "Automatically run linter after file modifications",
+      "trigger": "post-write",
+      "command": "npm run lint --fix",
+      "enabled": false
+    },
+    {
+      "name": "auto-format",
+      "description": "Format files after writing",
+      "trigger": "post-write",
+      "command": "npx prettier --write",
+      "enabled": false
+    },
+    {
+      "name": "test-on-change",
+      "description": "Run related tests when source files change",
+      "trigger": "post-write",
+      "command": "npm test -- --related",
+      "enabled": false
+    }
+  ]
+}

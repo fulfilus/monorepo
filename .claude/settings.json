@@ -1,0 +1,35 @@
+{
+  "model": "claude-sonnet-4-20250514",
+  "theme": "dark",
+  "autoCompact": true,
+  "compactThreshold": 80,
+  "hooks": {
+    "PreCompact": [{ "matcher": "", "hooks": [{ "type": "command", "command": ".claude/hooks/precompact.sh" }] }],
+    "SessionStart": [{ "matcher": "", "hooks": [{ "type": "command", "command": ".claude/hooks/session-start.sh" }] }],
+    "PostToolUse": [{ "matcher": "", "hooks": [{ "type": "command", "command": ".claude/hooks/post-tool-use.sh" }] }]
+  },
+  "commands": {
+    "directory": ".claude/commands"
+  },
+  "skills": {
+    "directory": ".claude/skills"
+  },
+  "agents": {
+    "directory": ".claude/agents"
+  },
+  "outputStyles": {
+    "directory": ".claude/output-styles",
+    "default": "concise"
+  },
+  "rules": {
+    "directory": ".claude/rules"
+  },
+  "statusline": {
+    "enabled": true,
+    "config": ".claude/statusline/statusline.json"
+  },
+  "safety": {
+    "confirmDestructive": true,
+    "confirmProduction": true
+  }
+}
