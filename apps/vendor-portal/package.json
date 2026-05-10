@@ -1,0 +1,32 @@
+{
+  "name": "vendor-portal",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "ng serve",
+    "build": "ng build",
+    "test": "ng test",
+    "lint": "ng lint"
+  },
+  "dependencies": {
+    "@angular/animations": "17.3.12",
+    "@angular/common": "17.3.12",
+    "@angular/compiler": "17.3.12",
+    "@angular/core": "17.3.12",
+    "@angular/forms": "17.3.12",
+    "@angular/platform-browser": "17.3.12",
+    "@angular/platform-browser-dynamic": "17.3.12",
+    "@angular/router": "17.3.12",
+    "@fulfilus/shared": "workspace:*",
+    "rxjs": "7.8.1",
+    "tslib": "2.8.1",
+    "zone.js": "0.14.10"
+  },
+  "devDependencies": {
+    "@angular-devkit/build-angular": "17.3.11",
+    "@angular/cli": "17.3.11",
+    "@angular/compiler-cli": "17.3.12",
+    "@types/node": "22.13.1",
+    "typescript": "5.4.5"
+  }
+}

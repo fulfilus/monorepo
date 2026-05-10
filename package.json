@@ -1,0 +1,16 @@
+{
+  "name": "fulfilus-monorepo",
+  "private": true,
+  "version": "0.0.1",
+  "scripts": {
+    "dev:api": "pnpm --filter vendor-api dev",
+    "dev:portal": "pnpm --filter vendor-portal dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  }
+}

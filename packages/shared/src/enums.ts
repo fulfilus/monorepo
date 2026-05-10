@@ -1,0 +1,32 @@
+export enum VendorCategory {
+  PRODUCE = "PRODUCE",
+  DAIRY = "DAIRY",
+  FROZEN = "FROZEN",
+  BAKERY = "BAKERY",
+  MEAT = "MEAT",
+  BEVERAGES = "BEVERAGES",
+  SNACKS = "SNACKS",
+  HOUSEHOLD = "HOUSEHOLD",
+  PERSONAL_CARE = "PERSONAL_CARE",
+  GENERAL_GROCERY = "GENERAL_GROCERY",
+}
+
+export enum ContactStatus {
+  CONTACTED = "CONTACTED",
+  NOT_CONTACTED = "NOT_CONTACTED",
+}
+
+export enum PaymentType {
+  QR_CODE = "QR_CODE",
+  PHONE_NUMBER = "PHONE_NUMBER",
+  BANK_ACCOUNT = "BANK_ACCOUNT",
+}
+
+export enum EnrichmentSource {
+  GOOGLE_MAPS = "GOOGLE_MAPS",
+  JUSTDIAL = "JUSTDIAL",
+  INDIAMART = "INDIAMART",
+  OCR = "OCR",
+  LLM = "LLM",
+  MANUAL = "MANUAL",
+}

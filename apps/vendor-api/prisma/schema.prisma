@@ -1,0 +1,126 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum VendorCategory {
+  PRODUCE
+  DAIRY
+  FROZEN
+  BAKERY
+  MEAT
+  BEVERAGES
+  SNACKS
+  HOUSEHOLD
+  PERSONAL_CARE
+  GENERAL_GROCERY
+}
+
+enum ContactStatus {
+  CONTACTED
+  NOT_CONTACTED
+}
+
+enum PaymentType {
+  QR_CODE
+  PHONE_NUMBER
+  BANK_ACCOUNT
+}
+
+enum EnrichmentSource {
+  GOOGLE_MAPS
+  JUSTDIAL
+  INDIAMART
+  OCR
+  LLM
+  MANUAL
+}
+
+model Vendor {
+  id             String         @id @default(cuid())
+  shopName       String
+  shopDetails    String?
+  location       String
+  whatsappNumber String
+  gstNumber      String?
+  contactStatus  ContactStatus  @default(NOT_CONTACTED)
+  notes          String?
+  categories     VendorCategory[]
+  shopPhotoUrl   String?
+
+  payment        VendorPayment?
+  bankAccount    BankAccount?
+  documents      Document[]
+  enrichmentJobs EnrichmentJob[]
+  auditLogs      AuditLog[]
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([whatsappNumber])
+  @@index([contactStatus])
+}
+
+model VendorPayment {
+  id        String      @id @default(cuid())
+  vendorId  String      @unique
+  type      PaymentType
+  value     String
+  vendor    Vendor      @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+}
+
+model BankAccount {
+  id            String @id @default(cuid())
+  vendorId      String @unique
+  accountNumber String
+  ifscCode      String
+  accountHolder String
+  bankName      String
+  vendor        Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  vendorId  String
+  type      String
+  url       String
+  mimeType  String
+  sizeBytes Int
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([vendorId])
+}
+
+model EnrichmentJob {
+  id              String           @id @default(cuid())
+  vendorId        String
+  source          EnrichmentSource
+  status          String           @default("PENDING")
+  confidenceScore Float?
+  modelId         String?
+  rawPayload      Json?
+  errorMessage    String?
+  vendor          Vendor           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime         @default(now())
+
+  @@index([vendorId, status])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  vendorId   String
+  action     String
+  changedBy  String
+  diff       Json?
+  vendor     Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@index([vendorId])
+}
