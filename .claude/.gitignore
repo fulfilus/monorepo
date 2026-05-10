@@ -2,8 +2,8 @@
 claude.local.md
 settings.local.json
 
-# MCP credentials and secrets
-.mcp.json
+# MCP files with credentials — add server-specific files here if needed
+# .mcp.json is committed since current servers require no credentials
 
 # Hook logs
 hooks/*.log
