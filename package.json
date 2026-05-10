@@ -3,6 +3,8 @@
   "private": true,
   "version": "0.0.1",
   "scripts": {
+    "build:shared": "pnpm --filter @fulfilus/shared build",
+    "predev:api": "pnpm build:shared",
     "dev:api": "pnpm --filter vendor-api dev",
     "dev:portal": "pnpm --filter vendor-portal dev",
     "build": "pnpm -r build",
