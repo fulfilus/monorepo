@@ -6,14 +6,15 @@ import {
   Patch,
   Post,
   Query,
-  UploadedFile,
-  UseInterceptors,
 } from "@nestjs/common";
-import { FileInterceptor } from "@nestjs/platform-express";
-import { ApiConsumes, ApiQuery, ApiTags } from "@nestjs/swagger";
+import { ApiBody, ApiQuery, ApiTags } from "@nestjs/swagger";
 import { CreateVendorDto } from "./dto/create-vendor.dto";
 import { UpdateVendorDto } from "./dto/update-vendor.dto";
 import { VendorService } from "./vendor.service";
+
+class PhotoUrlDto {
+  url: string;
+}
 
 @ApiTags("vendors")
 @Controller("vendors")
@@ -43,14 +44,8 @@ export class VendorController {
   }
 
   @Post(":id/photo")
-  @ApiConsumes("multipart/form-data")
-  @UseInterceptors(FileInterceptor("file"))
-  uploadPhoto(
-    @Param("id") id: string,
-    @UploadedFile() file: Express.Multer.File,
-  ) {
-    // In production: upload to object storage, return URL
-    const url = `/uploads/${file.originalname}`;
-    return this.vendorService.updateShopPhoto(id, url, "system");
+  @ApiBody({ type: PhotoUrlDto })
+  uploadPhoto(@Param("id") id: string, @Body() body: PhotoUrlDto) {
+    return this.vendorService.updateShopPhoto(id, body.url, "system");
   }
 }

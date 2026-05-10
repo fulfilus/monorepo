@@ -54,19 +54,18 @@ export class VendorService {
 
   async update(id: string, dto: UpdateVendorDto, updatedBy: string) {
     await this.findOne(id);
+    const { payment, bankAccount, categories, ...scalar } = dto;
     return this.prisma.vendor.update({
       where: { id },
       data: {
-        ...dto,
-        ...(dto.payment && {
-          payment: { upsert: { create: dto.payment, update: dto.payment } },
+        ...scalar,
+        ...(categories && { categories }),
+        ...(payment && {
+          payment: { upsert: { create: payment, update: payment } },
         }),
-        ...(dto.bankAccount && {
+        ...(bankAccount && {
           bankAccount: {
-            upsert: {
-              create: dto.bankAccount,
-              update: dto.bankAccount,
-            },
+            upsert: { create: bankAccount, update: bankAccount },
           },
         }),
         auditLogs: {
