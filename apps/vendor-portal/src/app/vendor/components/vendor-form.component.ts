@@ -210,8 +210,7 @@ export class VendorFormComponent implements OnInit, OnDestroy {
       this.isListening = false;
       return;
     }
-    const Rec = (window as unknown as Record<string, unknown>)["SpeechRecognition"] as typeof SpeechRecognition
-      ?? (window as unknown as Record<string, unknown>)["webkitSpeechRecognition"] as typeof SpeechRecognition;
+    const Rec = (typeof SpeechRecognition !== "undefined" ? SpeechRecognition : webkitSpeechRecognition);
     this.recognition = new Rec();
     this.recognition.lang = "en-IN";
     this.recognition.interimResults = false;
