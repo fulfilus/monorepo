@@ -15,10 +15,34 @@ You are an AI assistant working on the Fulfilus monorepo. Follow these instructi
 
 ## Project Overview
 
-- **Company**: Fulfilus (fulfilus@gmail.com)
+- **Company**: Fulfilus — grocery automation and fulfillment technology; robotics, inventory intelligence, operational scalability, and AI-assisted workflows
 - **Name**: fulfilus/monorepo
 - **Type**: Polyglot monorepo — multiple languages and frameworks coexist
 - **Package Manager**: pnpm (Node.js packages); language-native tools for others
+- **Frontend**: Angular standalone architecture, reusable forms, AI suggestion highlighting, strong typing
+- **Backend**: REST APIs, structured logging, validation, audit logging, background jobs, secure uploads
+- **Database**: PostgreSQL — vendors, categories, AI insights, enrichment jobs, documents, audit logs, confidence scoring
+
+## Domain
+
+The platform is an AI-assisted Vendor Intelligence and Vendor Onboarding system. Core workflows: onboarding, AI enrichment, OCR, and operational intelligence.
+
+AI-generated fields must include confidence scores, source tracking, model metadata, and timestamps.
+
+Enrichment sources: Google Maps, JustDial, IndiaMart, OCR, and LLM extraction.
+
+## Reference Docs
+
+Full guidelines live in `docs/`. Always read before implementing:
+
+- `docs/fulfil-context.md` — company context
+- `docs/vendor-domain.md` — domain and platform overview
+- `docs/architecture-principles.md` — clean architecture, provider patterns, async pipelines, typed DTOs
+- `docs/backend-guidelines.md` — API and service conventions
+- `docs/frontend-guidelines.md` — Angular patterns
+- `docs/db-guidelines.md` — schema and auditability conventions
+- `docs/ai-enrichment-rules.md` — AI field requirements
+- `docs/prompts/` — task-specific prompts for common implementation patterns
 
 ## Architecture
 
