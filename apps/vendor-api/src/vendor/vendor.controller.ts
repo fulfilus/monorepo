@@ -103,6 +103,18 @@ export class VendorController {
     return this.vendorService.remove(id);
   }
 
+  @Post("bulk-import")
+  @ApiConsumes("multipart/form-data")
+  async bulkImport(@Req() req: FastifyRequest) {
+    const part = await req.file();
+    if (!part) throw new BadRequestException("No file uploaded");
+    const chunks: Buffer[] = [];
+    for await (const chunk of part.file) { chunks.push(chunk as Buffer); }
+    const csv = Buffer.concat(chunks);
+    if (csv.length === 0) throw new BadRequestException("Empty file");
+    return this.vendorService.bulkImportCsv(csv, "import");
+  }
+
   @Post(":id/photo")
   @ApiConsumes("multipart/form-data")
   async uploadPhoto(@Param("id") id: string, @Req() req: FastifyRequest) {

@@ -5,6 +5,7 @@ import { PrismaService } from "../common/prisma.service";
 import { CreateVendorDto } from "./dto/create-vendor.dto";
 import { UpdateVendorDto } from "./dto/update-vendor.dto";
 import type { VendorListQueryDto } from "./dto/vendor-query.dto";
+import { parse } from "csv-parse/sync";
 
 @Injectable()
 export class VendorService {
@@ -227,5 +228,68 @@ export class VendorService {
         },
       },
     });
+  }
+
+  async bulkImportCsv(csv: Buffer, importedBy: string): Promise<{ imported: number; skipped: number; errors: { row: number; reason: string }[] }> {
+    const rows = parse(csv, { columns: true, skip_empty_lines: true, trim: true }) as Record<string, string>[];
+    const errors: { row: number; reason: string }[] = [];
+    let imported = 0;
+    let skipped = 0;
+
+    const VALID_CATEGORIES = new Set([
+      "RAW_MATERIALS", "ELECTRICAL_ELECTRONICS", "MECHANICAL_TOOLS", "FASTENERS_HARDWARE",
+      "CHEMICALS_LUBRICANTS", "SAFETY_PPE", "HYDRAULICS_PNEUMATICS", "PLASTICS_RUBBER",
+      "PACKAGING_MATERIALS", "CONSTRUCTION_MATERIALS", "BEARINGS_TRANSMISSION",
+      "INSTRUMENTATION", "GENERAL_INDUSTRIAL",
+    ]);
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const rowNum = i + 2; // 1-indexed + header
+      const shopName = row["shopName"]?.trim();
+      const location = row["location"]?.trim();
+      const whatsappNumber = row["whatsappNumber"]?.trim();
+
+      if (!shopName || !location || !whatsappNumber) {
+        errors.push({ row: rowNum, reason: "Missing required field: shopName, location, or whatsappNumber" });
+        skipped++;
+        continue;
+      }
+
+      const rawCategories = (row["categories"] ?? "").split(";").map(c => c.trim().toUpperCase()).filter(Boolean);
+      const categories = rawCategories.filter(c => VALID_CATEGORIES.has(c));
+
+      try {
+        const duplicate = await this.prisma.vendor.findFirst({
+          where: { OR: [{ whatsappNumber }, { shopName: { equals: shopName, mode: "insensitive" } }] },
+          select: { id: true },
+        });
+        if (duplicate) {
+          errors.push({ row: rowNum, reason: `Duplicate: vendor with this name or number already exists` });
+          skipped++;
+          continue;
+        }
+
+        await this.prisma.vendor.create({
+          data: {
+            shopName,
+            location,
+            whatsappNumber,
+            gstNumber: row["gstNumber"]?.trim() || undefined,
+            shopDetails: row["shopDetails"]?.trim() || undefined,
+            notes: row["notes"]?.trim() || undefined,
+            categories: categories as never[],
+            contactStatus: "NOT_CONTACTED",
+            auditLogs: { create: { action: "BULK_IMPORT", changedBy: importedBy } },
+          },
+        });
+        imported++;
+      } catch {
+        errors.push({ row: rowNum, reason: "Database error during insert" });
+        skipped++;
+      }
+    }
+
+    return { imported, skipped, errors };
   }
 }

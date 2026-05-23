@@ -103,4 +103,10 @@ export class VendorService {
   deleteContactLog(vendorId: string, logId: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/${vendorId}/contact-logs/${logId}`);
   }
+
+  bulkImportCsv(file: File): Observable<{ imported: number; skipped: number; errors: { row: number; reason: string }[] }> {
+    const form = new FormData();
+    form.append("file", file);
+    return this.http.post<{ imported: number; skipped: number; errors: { row: number; reason: string }[] }>(`${this.base}/bulk-import`, form);
+  }
 }

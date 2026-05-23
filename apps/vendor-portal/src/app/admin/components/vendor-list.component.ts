@@ -21,7 +21,22 @@ import { VendorListFilters, VendorService } from "../../vendor/services/vendor.s
         <a routerLink="/customers" class="btn-link" style="margin-right:8px;">Customers</a>
         <a routerLink="/inbox" class="btn-link" style="margin-right:8px;">Inbox</a>
         <button (click)="exportCsv()" class="btn-secondary" style="margin-right:8px;">Export CSV</button>
+        <label style="cursor:pointer; font-weight:normal;">
+          <input type="file" accept=".csv,text/csv" style="display:none;" (change)="onImportFile($event)" [disabled]="importing" />
+          <span class="btn-secondary" style="margin-right:8px;" [style.opacity]="importing ? '0.6' : '1'">{{ importing ? 'Importing...' : 'Import CSV' }}</span>
+        </label>
         <a routerLink="/" class="btn-secondary">+ Add Vendor</a>
+      </div>
+
+      <!-- Import result -->
+      <div *ngIf="importResult" style="margin-bottom:12px; padding:10px 14px; border-radius:6px; font-size:13px;"
+           [style.background]="importResult.errors.length ? '#fef2f2' : '#f0fdf4'"
+           [style.border]="importResult.errors.length ? '1px solid #fecaca' : '1px solid #bbf7d0'">
+        Imported: <strong>{{ importResult.imported }}</strong> &nbsp;|&nbsp;
+        Skipped: <strong>{{ importResult.skipped }}</strong>
+        <div *ngIf="importResult.errors.length" style="margin-top:6px;">
+          <div *ngFor="let e of importResult.errors" style="font-size:12px; color:#dc2626;">Row {{ e.row }}: {{ e.reason }}</div>
+        </div>
       </div>
 
       <!-- Filters -->
@@ -139,6 +154,9 @@ export class VendorListComponent implements OnInit, OnDestroy {
   selectedIds = new Set<string>();
   bulkWorking = false;
 
+  importing = false;
+  importResult: { imported: number; skipped: number; errors: { row: number; reason: string }[] } | null = null;
+
   get allSelected(): boolean {
     return this.vendors.length > 0 && this.vendors.every(v => this.selectedIds.has(v.id));
   }
@@ -239,6 +257,23 @@ export class VendorListComponent implements OnInit, OnDestroy {
     this.vendorService.bulkStatus([...this.selectedIds], status).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => { this.clearSelection(); this.bulkWorking = false; this.reload$.next(); },
       error: () => { this.errorMessage = "Bulk update failed."; this.bulkWorking = false; },
+    });
+  }
+
+  onImportFile(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    this.importing = true;
+    this.importResult = null;
+    this.vendorService.bulkImportCsv(file).pipe(takeUntil(this.destroy$)).subscribe({
+      next: result => {
+        this.importResult = result;
+        this.importing = false;
+        input.value = "";
+        if (result.imported > 0) this.reload$.next();
+      },
+      error: () => { this.importing = false; input.value = ""; },
     });
   }
 
