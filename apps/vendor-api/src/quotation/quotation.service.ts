@@ -167,6 +167,56 @@ Suggest 6-8 relevant items for this quotation.`;
     }
   }
 
+  async generateAccountingExport(from?: string, to?: string): Promise<string> {
+    const quotes = await this.prisma.quotation.findMany({
+      where: {
+        type: "PO_QUOTE",
+        ...((from ?? to) ? {
+          createdAt: {
+            ...(from ? { gte: new Date(from) } : {}),
+            ...(to ? { lte: new Date(to + "T23:59:59Z") } : {}),
+          },
+        } : {}),
+      },
+      include: {
+        vendor: { select: { shopName: true, gstNumber: true } },
+        lineItems: { orderBy: { sortOrder: "asc" } },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    const GST_RATE = 18;
+    const escape = (v: string | number | null | undefined) =>
+      `"${String(v ?? "").replace(/"/g, '""')}"`;
+
+    const header = [
+      "Date", "Reference", "Voucher Type", "Party", "GST Number",
+      "Item", "Description", "Quantity", "Unit",
+      "Rate (INR)", "Amount (INR)", "GST %", "CGST (INR)", "SGST (INR)", "Total with GST (INR)",
+    ].map(escape).join(",");
+
+    const rows: string[] = [header];
+    for (const q of quotes) {
+      const date = q.createdAt.toISOString().slice(0, 10);
+      for (const item of q.lineItems) {
+        const amount = item.totalPrice ??
+          ((item.quantity != null && item.unitPrice != null) ? item.quantity * item.unitPrice : 0);
+        const gstAmount = Math.round(amount * GST_RATE) / 100;
+        const cgst = Math.round(gstAmount * 50) / 100;
+        rows.push([
+          date, q.referenceNumber, "Purchase",
+          q.vendor.shopName, q.vendor.gstNumber ?? "",
+          item.itemName, item.description ?? "",
+          item.quantity ?? "", item.unit ?? "",
+          item.unitPrice ?? "", amount.toFixed(2),
+          GST_RATE, cgst.toFixed(2), cgst.toFixed(2),
+          (amount + gstAmount).toFixed(2),
+        ].map(escape).join(","));
+      }
+    }
+    return rows.join("\n");
+  }
+
   async generatePdf(id: string): Promise<{ buffer: Buffer; filename: string }> {
     const quotation = await this.findOne(id);
     const buffer = await this.pdfService.generate(quotation);

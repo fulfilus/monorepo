@@ -31,6 +31,19 @@ export class QuotationController {
     return this.quotationService.create(dto);
   }
 
+  @Get("accounting-export")
+  async accountingExport(
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+    @Res() reply?: FastifyReply,
+  ) {
+    const csv = await this.quotationService.generateAccountingExport(from, to);
+    void reply!
+      .header("Content-Type", "text/csv")
+      .header("Content-Disposition", `attachment; filename="accounting-export-${new Date().toISOString().slice(0, 10)}.csv"`)
+      .send(csv);
+  }
+
   @Get("vendor/:vendorId")
   findAll(
     @Param("vendorId") vendorId: string,

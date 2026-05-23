@@ -1,17 +1,25 @@
 import { CommonModule } from "@angular/common";
 import { Component, OnInit } from "@angular/core";
+import { FormsModule } from "@angular/forms";
 import { RouterLink } from "@angular/router";
 import { DashboardResponseDto, SpendAnalyticsDto } from "@fulfilus/shared";
+import { environment } from "../../../environments/environment";
 import { DashboardService } from "../services/dashboard.service";
 
 @Component({
   selector: "app-dashboard",
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink],
   template: `
     <div class="admin-page">
       <div class="admin-header">
         <h2>Dashboard</h2>
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <input type="date" [(ngModel)]="exportFrom" style="padding:5px 8px; border:1px solid #d1d5db; border-radius:5px; font-size:13px;" />
+          <span style="font-size:12px; color:#6b7280;">to</span>
+          <input type="date" [(ngModel)]="exportTo" style="padding:5px 8px; border:1px solid #d1d5db; border-radius:5px; font-size:13px;" />
+          <button (click)="downloadAccountingExport()" class="btn-secondary" style="font-size:13px;">Export POs (CSV)</button>
+        </div>
         <a routerLink="/admin" class="btn-secondary">Manage Vendors</a>
       </div>
 
@@ -168,6 +176,9 @@ export class DashboardComponent implements OnInit {
   loadingSpend = true;
   errorMessage = "";
 
+  exportFrom = "";
+  exportTo = "";
+
   constructor(private readonly dashboardService: DashboardService) {}
 
   ngOnInit() {
@@ -179,6 +190,14 @@ export class DashboardComponent implements OnInit {
       next: s => { this.spend = s; this.loadingSpend = false; },
       error: () => { this.loadingSpend = false; },
     });
+  }
+
+  downloadAccountingExport() {
+    const params = new URLSearchParams();
+    if (this.exportFrom) params.set("from", this.exportFrom);
+    if (this.exportTo) params.set("to", this.exportTo);
+    const qs = params.toString();
+    window.open(`${environment.apiUrl}/quotations/accounting-export${qs ? "?" + qs : ""}`, "_blank");
   }
 
   formatCategory(cat: string): string {
