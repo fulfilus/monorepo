@@ -10,26 +10,26 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **Smart sourcing and margin quotation builder** — add items manually / paste / CSV; lookup vendor prices from price lists and historical bids; apply global markup % with per-item override; generate customer-facing PDF and internal cost sheet PDF
 - [x] **WhatsApp RFQ blast** — when a procurement round is OPEN, send the item list to all invited vendors via WhatsApp Business API; vendors reply with prices; message log stored against the procurement round
 - [x] **OCR price list import** — upload a photo or PDF of a vendor's printed price list; extract item names and prices using OCR + LLM; pre-fill the bid entry form in the procurement round
-- [~] **PDF purchase orders** — proper PO PDF format (PO number, Fulfilus header, delivery address, payment terms, line items, signature line, terms and conditions); generated at award time alongside PO quote
-- [ ] **Recurring procurement rounds** — save a round as a template (item list + vendor list); one-click creates the next cycle pre-populated with the same vendors and items
+- [x] **PDF purchase orders** — proper PO PDF format (PO number, Fulfilus header, delivery address, payment terms, line items, signature line, terms and conditions); generated at award time alongside PO quote
+- [x] **Recurring procurement rounds** — save a round as a template (item list + vendor list); one-click creates the next cycle pre-populated with the same vendors and items
 
 ---
 
 ## P1 — Intelligence and Analytics
 
-- [ ] **Price history per item** — across procurement rounds, track each vendor's bid price per item over time; show a trend sparkline in the comparison matrix; surface price increases automatically
-- [ ] **Vendor performance scorecard** — composite score per vendor: price competitiveness (rank vs. average across rounds), bid response rate (bids submitted / rounds invited), delivery reliability (manually logged); shown as a badge in vendor list
-- [ ] **Spend analytics dashboard** — total spend by vendor, by category, by month; chart of award splits over time; which vendors are being awarded vs. only compared
-- [ ] **Agreed rate contracts** — lock in a negotiated rate per item per vendor with a validity date and tolerance %; if a bid comes in above contracted rate, flag it in the comparison matrix
+- [x] **Price history per item** — across procurement rounds, track each vendor's bid price per item over time; show a trend sparkline in the comparison matrix; surface price increases automatically
+- [x] **Vendor performance scorecard** — composite score per vendor: price competitiveness (rank vs. average across rounds), bid response rate (bids submitted / rounds invited), delivery reliability (manually logged); shown as a badge in vendor list
+- [x] **Spend analytics dashboard** — total spend by vendor, by category, by month; chart of award splits over time; which vendors are being awarded vs. only compared
+- [x] **Agreed rate contracts** — lock in a negotiated rate per item per vendor with a validity date and tolerance %; if a bid comes in above contracted rate, flag it in the comparison matrix
 
 ---
 
 ## P2 — Data Operations
 
-- [ ] **Bulk vendor CSV import** — upload a spreadsheet (name, phone, location, category) and onboard multiple vendors at once; show import summary with success/error rows
-- [ ] **Vendor merge** — when two duplicate vendors are detected, merge their quotations, contact logs, procurement bids, and documents into one record
-- [ ] **Accounting export** — export awarded POs as a CSV or JSON compatible with Tally / Zoho Books / QuickBooks; include vendor GST, line items, totals
-- [ ] **Barcode / QR item lookup** — scan a product barcode in the procurement item entry form; auto-fill item name, description, and standard unit from a product database or previous rounds
+- [x] **Bulk vendor CSV import** — upload a spreadsheet (name, phone, location, category) and onboard multiple vendors at once; show import summary with success/error rows
+- [x] **Vendor merge** — when two duplicate vendors are detected, merge their quotations, contact logs, procurement bids, and documents into one record
+- [x] **Accounting export** — export awarded POs as a CSV or JSON compatible with Tally / Zoho Books / QuickBooks; include vendor GST, line items, totals
+- [x] **Barcode / QR item lookup** — scan a product barcode in the procurement item entry form; auto-fill item name, description, and standard unit from a product database or previous rounds
 
 ---
 
