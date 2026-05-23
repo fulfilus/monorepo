@@ -10,6 +10,16 @@ Format: `## [version] YYYY-MM-DD` with sections Added / Changed / Fixed / Remove
 > Changes merged into `main` but not yet tagged as a release.
 
 ### Added
+- Agreed rate contracts module — `AgreedRateContract` model; `GET/POST /contracts`, `PUT/DELETE /contracts/:id`; filter by vendor, item, status; validity window with ACTIVE/EXPIRED/CANCELLED status; HSN code and GST rate per contract; frontend at `/contracts` with inline create form and cancel/delete actions
+- GST per-item handling — `hsnCode` and `gstRate` fields on `QuotationLineItem`, `ProcurementItem`, `SourcingQuoteItem`, `AgreedRateContract`; per-row GST breakdown (subtotal, GST amount, total incl. GST) in quotation form; grand totals row showing Subtotal / Total GST / Grand Total
+- HSN code lookup endpoint — `GET /quotations/hsn-lookup?code=` resolves HSN code to applicable GST rate using 8→6→4 digit prefix matching against a static HSN→rate map; auto-fills GST % in quotation form on HSN blur
+- GST utility (`common/gst.util.ts`) — `gstRateForHsn()`, `gstBreakdown()` (CGST + SGST split for intra-state), `GST_SLABS` constant; used by accounting export and hsn-lookup endpoint
+- Accounting export — `GET /quotations/accounting-export?from=&to=` streams a CSV with Date, Reference, Voucher Type, Party, GST Number, Item, HSN Code, Description, Qty, Unit, Rate, Amount, GST%, CGST, SGST, Total; date range picker and download button in admin dashboard
+- Barcode/QR scanning in procurement form — camera-based scanning using native BarcodeDetector API with `requestAnimationFrame` scan loop; graceful fallback to manual text entry when API unavailable; `GET /procurement/barcode-lookup?barcode=` matches against past `ProcurementItem` and `QuotationLineItem` records and auto-fills item name, description, unit, HSN, GST rate
+- Procurement templates — save round items as reusable template; `GET/POST /procurement/templates`, `DELETE /procurement/templates/:id`, `POST /procurement/templates/:id/use`; `ProcurementRoundTemplate` model with items as JSON column
+- Vendor scorecard and spend analytics — `GET /dashboard/spend` aggregates spend by category, vendor, and time period; vendor scorecard view in procurement detail
+- Vendor merge — `POST /vendors/merge` merges a secondary vendor record into a primary, re-linking related records; duplicate detection via `GET /vendors/merge-candidates`
+- Vendor bulk import — `POST /vendors/bulk-import` accepts CSV payload and creates vendor records in batch
 - Inbound WhatsApp order processing — incoming messages from known customers are routed to `InboundService` (text and image types); unknown numbers continue through vendor onboarding; WhatsApp webhook now distinguishes customers from vendors by phone lookup
 - Item extraction from WhatsApp messages — text messages parsed by Claude (`claude-sonnet-4-6`) with structured JSON extraction; image messages downloaded from Meta CDN and processed via Claude Vision; extracts item name, quantity, unit, and notes
 - Auto-quote from inbound message — extracted items auto-priced from vendor data (`SourcingService.lookup`), a `DRAFT` `SourcingQuote` is created and linked to the inbound message; staff review required before any quote is sent back
