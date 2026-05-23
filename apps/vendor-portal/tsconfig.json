@@ -19,7 +19,7 @@
     "useDefineForClassFields": false,
     "lib": ["ES2022", "dom"],
     "paths": {
-      "@fulfilus/shared": ["../../packages/shared/src"]
+      "@fulfilus/shared": ["../../packages/shared/dist"]
     }
   },
   "angularCompilerOptions": {

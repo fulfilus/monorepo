@@ -1,8 +1,14 @@
-import { HttpClient } from "@angular/common/http";
+import { HttpClient, HttpParams } from "@angular/common/http";
 import { Injectable } from "@angular/core";
-import { CreateVendorDto, PaginatedResponse, VendorResponseDto } from "@fulfilus/shared";
+import { AuditLogResponseDto, ContactLogResponseDto, ContactLogType, CreateVendorDto, DocumentResponseDto, EnrichmentResult, PaginatedResponse, VendorResponseDto } from "@fulfilus/shared";
 import { Observable } from "rxjs";
 import { environment } from "../../../environments/environment";
+
+export interface VendorListFilters {
+  search?: string;
+  status?: string;
+  category?: string;
+}
 
 @Injectable({ providedIn: "root" })
 export class VendorService {
@@ -14,10 +20,12 @@ export class VendorService {
     return this.http.post<VendorResponseDto>(this.base, dto);
   }
 
-  list(page = 1, limit = 20): Observable<PaginatedResponse<VendorResponseDto>> {
-    return this.http.get<PaginatedResponse<VendorResponseDto>>(this.base, {
-      params: { page, limit },
-    });
+  list(page = 1, limit = 20, filters: VendorListFilters = {}): Observable<PaginatedResponse<VendorResponseDto>> {
+    let params = new HttpParams().set("page", page).set("limit", limit);
+    if (filters.search) params = params.set("search", filters.search);
+    if (filters.status) params = params.set("status", filters.status);
+    if (filters.category) params = params.set("category", filters.category);
+    return this.http.get<PaginatedResponse<VendorResponseDto>>(this.base, { params });
   }
 
   getById(id: string): Observable<VendorResponseDto> {
@@ -32,5 +40,67 @@ export class VendorService {
     const form = new FormData();
     form.append("file", file);
     return this.http.post<VendorResponseDto>(`${this.base}/${id}/photo`, form);
+  }
+
+  remove(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${id}`);
+  }
+
+  auditLogs(id: string): Observable<AuditLogResponseDto[]> {
+    return this.http.get<AuditLogResponseDto[]>(`${this.base}/${id}/audit-logs`);
+  }
+
+  bulkStatus(ids: string[], contactStatus: string): Observable<{ count: number }> {
+    return this.http.post<{ count: number }>(`${this.base}/bulk-status`, { ids, contactStatus });
+  }
+
+  listDocuments(id: string): Observable<DocumentResponseDto[]> {
+    return this.http.get<DocumentResponseDto[]>(`${this.base}/${id}/documents`);
+  }
+
+  uploadDocument(id: string, file: File): Observable<DocumentResponseDto> {
+    const form = new FormData();
+    form.append("file", file);
+    return this.http.post<DocumentResponseDto>(`${this.base}/${id}/documents`, form);
+  }
+
+  deleteDocument(vendorId: string, docId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${vendorId}/documents/${docId}`);
+  }
+
+  startEnrichment(mapsUrl: string): Observable<{ jobId: string; status: string }> {
+    return this.http.post<{ jobId: string; status: string }>(`${environment.apiUrl}/enrich/maps-url`, { mapsUrl });
+  }
+
+  pollEnrichmentJob(jobId: string): Observable<{ id: string; status: string; rawPayload: unknown; confidenceScore: number | null; errorMessage: string | null }> {
+    return this.http.get<{ id: string; status: string; rawPayload: unknown; confidenceScore: number | null; errorMessage: string | null }>(`${environment.apiUrl}/enrich/jobs/${jobId}`);
+  }
+
+  enrichFromUrl(mapsUrl: string): Observable<EnrichmentResult> {
+    return this.http.post<EnrichmentResult>(`${environment.apiUrl}/enrich/maps-url`, { mapsUrl });
+  }
+
+  enrichFromIndiamartUrl(url: string): Observable<EnrichmentResult> {
+    return this.http.post<EnrichmentResult>(`${environment.apiUrl}/enrich/indiamart-url`, { url });
+  }
+
+  enrichFromJustdialUrl(url: string): Observable<EnrichmentResult> {
+    return this.http.post<EnrichmentResult>(`${environment.apiUrl}/enrich/justdial-url`, { url });
+  }
+
+  reEnrich(id: string): Observable<EnrichmentResult> {
+    return this.http.post<EnrichmentResult>(`${this.base}/${id}/re-enrich`, {});
+  }
+
+  listContactLogs(vendorId: string): Observable<ContactLogResponseDto[]> {
+    return this.http.get<ContactLogResponseDto[]>(`${this.base}/${vendorId}/contact-logs`);
+  }
+
+  addContactLog(vendorId: string, type: ContactLogType, notes: string, contactedBy: string): Observable<ContactLogResponseDto> {
+    return this.http.post<ContactLogResponseDto>(`${this.base}/${vendorId}/contact-logs`, { type, notes, contactedBy });
+  }
+
+  deleteContactLog(vendorId: string, logId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${vendorId}/contact-logs/${logId}`);
   }
 }

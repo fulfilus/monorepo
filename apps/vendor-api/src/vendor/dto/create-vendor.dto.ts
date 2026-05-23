@@ -1,9 +1,12 @@
 import {
   IsArray,
+  IsBoolean,
   IsEnum,
+  IsNumber,
   IsOptional,
   IsString,
   Matches,
+  Min,
   ValidateNested,
 } from "class-validator";
 import { Type } from "class-transformer";
@@ -87,4 +90,49 @@ export class CreateVendorDto {
   @ValidateNested()
   @Type(() => BankAccountDto)
   bankAccount?: BankAccountDto;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => VendorDeliveryDto)
+  delivery?: VendorDeliveryDto;
+
+  @ApiPropertyOptional({ description: "Enrichment job ID to link to this vendor on creation" })
+  @IsOptional()
+  @IsString()
+  enrichmentJobId?: string;
+}
+
+export class VendorDeliveryDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  deliversOwn?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  thirdPartyPickup?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  coverageArea?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  minOrderAmount?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  deliveryCharge?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  chargeNotes?: string;
 }

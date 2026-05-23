@@ -1,12 +1,11 @@
 {
-  "model": "claude-sonnet-4-20250514",
   "theme": "dark",
   "autoCompact": true,
   "compactThreshold": 80,
   "hooks": {
-    "PreCompact": [{ "matcher": "", "hooks": [{ "type": "command", "command": ".claude/hooks/precompact.sh" }] }],
-    "SessionStart": [{ "matcher": "", "hooks": [{ "type": "command", "command": ".claude/hooks/session-start.sh" }] }],
-    "PostToolUse": [{ "matcher": "", "hooks": [{ "type": "command", "command": ".claude/hooks/post-tool-use.sh" }] }]
+    "PreCompact": [{ "matcher": "", "hooks": [{ "type": "command", "command": "bash -c 'exec \"$(git rev-parse --show-toplevel 2>/dev/null || echo .)/.claude/hooks/precompact.sh\" \"$@\"' --" }] }],
+    "SessionStart": [{ "matcher": "", "hooks": [{ "type": "command", "command": "bash -c 'exec \"$(git rev-parse --show-toplevel 2>/dev/null || echo .)/.claude/hooks/session-start.sh\" \"$@\"' --" }] }],
+    "PostToolUse": [{ "matcher": "", "hooks": [{ "type": "command", "command": "bash -c 'exec \"$(git rev-parse --show-toplevel 2>/dev/null || echo .)/.claude/hooks/post-tool-use.sh\" \"$@\"' --" }] }]
   },
   "commands": {
     "directory": ".claude/commands"

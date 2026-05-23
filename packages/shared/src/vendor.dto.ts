@@ -24,6 +24,15 @@ export interface BankAccountDto {
   bankName: string;
 }
 
+export interface VendorDeliveryDto {
+  deliversOwn: boolean;
+  thirdPartyPickup: boolean;
+  coverageArea: string | null;
+  minOrderAmount: number | null;
+  deliveryCharge: number | null;
+  chargeNotes: string | null;
+}
+
 export interface VendorResponseDto {
   id: string;
   shopName: string;
@@ -35,8 +44,12 @@ export interface VendorResponseDto {
   notes: string | null;
   categories: VendorCategory[];
   shopPhotoUrl: string | null;
+  placeId: string | null;
+  rating: number | null;
+  confidenceScore: number | null;
   payment: PaymentDto | null;
   bankAccount: BankAccountDto | null;
+  delivery: VendorDeliveryDto | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -46,6 +59,34 @@ export interface AiMetadata {
   source: string;
   modelId: string;
   generatedAt: string;
+}
+
+export interface DocumentResponseDto {
+  id: string;
+  vendorId: string;
+  type: string;
+  url: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: string;
+}
+
+export interface AuditLogResponseDto {
+  id: string;
+  action: string;
+  changedBy: string;
+  diff: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export type ContactLogType = "CALL" | "WHATSAPP" | "VISIT" | "EMAIL";
+
+export interface ContactLogResponseDto {
+  id: string;
+  type: ContactLogType;
+  notes: string | null;
+  contactedBy: string;
+  contactedAt: string;
 }
 
 export interface PaginatedResponse<T> {

@@ -25,6 +25,21 @@ export enum PaymentType {
   BANK_ACCOUNT = "BANK_ACCOUNT",
 }
 
+export enum QuotationType {
+  RFQ = "RFQ",
+  PRICE_LIST = "PRICE_LIST",
+  PO_QUOTE = "PO_QUOTE",
+}
+
+export enum QuotationStatus {
+  DRAFT = "DRAFT",
+  SENT = "SENT",
+  RECEIVED = "RECEIVED",
+  ACCEPTED = "ACCEPTED",
+  REJECTED = "REJECTED",
+  EXPIRED = "EXPIRED",
+}
+
 export enum EnrichmentSource {
   GOOGLE_MAPS = "GOOGLE_MAPS",
   JUSTDIAL = "JUSTDIAL",

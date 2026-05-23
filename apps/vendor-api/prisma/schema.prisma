@@ -34,6 +34,28 @@ enum PaymentType {
   BANK_ACCOUNT
 }
 
+enum QuotationType {
+  RFQ
+  PRICE_LIST
+  PO_QUOTE
+}
+
+enum QuotationStatus {
+  DRAFT
+  SENT
+  RECEIVED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum ContactLogType {
+  CALL
+  WHATSAPP
+  VISIT
+  EMAIL
+}
+
 enum EnrichmentSource {
   GOOGLE_MAPS
   JUSTDIAL
@@ -54,18 +76,37 @@ model Vendor {
   notes          String?
   categories     VendorCategory[]
   shopPhotoUrl   String?
+  placeId        String?
+  rating         Float?
 
   payment        VendorPayment?
   bankAccount    BankAccount?
+  delivery       VendorDelivery?
   documents      Document[]
   enrichmentJobs EnrichmentJob[]
   auditLogs      AuditLog[]
+  quotations     Quotation[]
+  contactLogs    ContactLog[]
+  vendorBids     VendorBid[]
 
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
   @@index([whatsappNumber])
   @@index([contactStatus])
+}
+
+model VendorDelivery {
+  id               String   @id @default(cuid())
+  vendorId         String   @unique
+  deliversOwn      Boolean  @default(false)
+  thirdPartyPickup Boolean  @default(false)
+  coverageArea     String?
+  minOrderAmount   Float?
+  deliveryCharge   Float?
+  chargeNotes      String?
+  vendor           Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  updatedAt        DateTime @updatedAt
 }
 
 model VendorPayment {
@@ -101,19 +142,287 @@ model Document {
 
 model EnrichmentJob {
   id              String           @id @default(cuid())
-  vendorId        String
+  vendorId        String?
   source          EnrichmentSource
   status          String           @default("PENDING")
   confidenceScore Float?
   modelId         String?
   rawPayload      Json?
   errorMessage    String?
-  vendor          Vendor           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendor          Vendor?          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   startedAt       DateTime?
   completedAt     DateTime?
   createdAt       DateTime         @default(now())
 
   @@index([vendorId, status])
+}
+
+model Quotation {
+  id              String          @id @default(cuid())
+  vendorId        String
+  type            QuotationType
+  status          QuotationStatus @default(DRAFT)
+  referenceNumber String          @unique
+  title           String
+  notes           String?
+  validUntil      DateTime?
+  sentAt          DateTime?
+  totalAmount     Float?
+  lineItems       QuotationLineItem[]
+  vendor          Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendorBid       VendorBid?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([vendorId, status])
+}
+
+model QuotationLineItem {
+  id            String    @id @default(cuid())
+  quotationId   String
+  itemName      String
+  description   String?
+  quantity      Float?
+  unit          String?
+  unitPrice     Float?
+  totalPrice    Float?
+  aiSuggested   Boolean   @default(false)
+  sortOrder     Int       @default(0)
+  quotation     Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
+
+  @@index([quotationId])
+}
+
+model ContactLog {
+  id          String         @id @default(cuid())
+  vendorId    String
+  type        ContactLogType
+  notes       String?
+  contactedBy String
+  contactedAt DateTime       @default(now())
+  vendor      Vendor         @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+}
+
+enum ProcurementStatus {
+  OPEN
+  COMPARING
+  AWARDED
+  CLOSED
+}
+
+enum BidStatus {
+  PENDING
+  SENT
+  RECEIVED
+  DECLINED
+}
+
+model ProcurementRound {
+  id         String            @id @default(cuid())
+  title      String
+  status     ProcurementStatus @default(OPEN)
+  notes      String?
+  items      ProcurementItem[]
+  vendorBids VendorBid[]
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+}
+
+model ProcurementItem {
+  id          String           @id @default(cuid())
+  roundId     String
+  itemName    String
+  description String?
+  quantity    Float?
+  unit        String?
+  targetPrice Float?
+  sortOrder   Int              @default(0)
+  round       ProcurementRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+
+  @@index([roundId])
+}
+
+model VendorBid {
+  id              String           @id @default(cuid())
+  roundId         String
+  vendorId        String
+  quotationId     String?          @unique
+  status          BidStatus        @default(PENDING)
+  lineItemPrices  Json?
+  notes           String?
+  round           ProcurementRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  vendor          Vendor           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  quotation       Quotation?       @relation(fields: [quotationId], references: [id])
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([roundId, vendorId])
+  @@index([roundId])
+}
+
+enum SourcingStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum SendMethod {
+  WHATSAPP
+  EMAIL
+  PDF_HANDOFF
+}
+
+enum InboundStatus {
+  PENDING
+  PROCESSING
+  QUOTED
+  FAILED
+}
+
+enum ValidationReviewStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+model Customer {
+  id               String           @id @default(cuid())
+  name             String
+  companyName      String?
+  phone            String?
+  email            String?
+  address          String?
+  gstNumber        String?
+  notes            String?
+  quotes           SourcingQuote[]
+  inboundMessages  InboundMessage[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([name])
+  @@index([phone])
+}
+
+model InboundMessage {
+  id             String          @id @default(cuid())
+  waMessageId    String          @unique
+  fromNumber     String
+  messageType    String
+  rawText        String?
+  imageMediaId   String?
+  extractedItems Json?
+  status         InboundStatus   @default(PENDING)
+  errorMessage   String?
+  customerId     String?
+  quoteId        String?         @unique
+  customer       Customer?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  quote          SourcingQuote?  @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([fromNumber])
+  @@index([status])
+}
+
+model QuoteValidation {
+  id          String                 @id @default(cuid())
+  quoteId     String                 @unique
+  score       Float
+  flags       Json
+  status      ValidationReviewStatus @default(PENDING_REVIEW)
+  reviewedBy  String?
+  reviewNotes String?
+  quote       SourcingQuote          @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+}
+
+model SourcingQuote {
+  id              String                  @id @default(cuid())
+  referenceNumber String                  @unique
+  title           String
+  customerId      String?
+  customerName    String?
+  customerAddress String?
+  customerPhone   String?
+  customerEmail   String?
+  customerGst     String?
+  validUntil      DateTime?
+  notes           String?
+  globalMarkupPct Float                   @default(15)
+  status          SourcingStatus          @default(DRAFT)
+  sentAt          DateTime?
+  acceptedAt      DateTime?
+  rejectedAt      DateTime?
+  revisionNumber  Int                     @default(1)
+  customer        Customer?               @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  items           SourcingQuoteItem[]
+  revisions       SourcingQuoteRevision[]
+  sends           SourcingQuoteSend[]
+  inboundMessage  InboundMessage?
+  validation      QuoteValidation?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  @@index([status])
+  @@index([customerId])
+}
+
+model SourcingQuoteSend {
+  id        String        @id @default(cuid())
+  quoteId   String
+  method    SendMethod
+  sentBy    String
+  notes     String?
+  quote     SourcingQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now())
+
+  @@index([quoteId])
+}
+
+model SourcingQuoteItem {
+  id           String        @id @default(cuid())
+  quoteId      String
+  itemName     String
+  description  String?
+  quantity     Float?
+  unit         String?
+  costPrice    Float?
+  sourceType   String?
+  sourceName   String?
+  markupPct    Float?
+  sellingPrice Float?
+  sortOrder    Int           @default(0)
+  quote        SourcingQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  createdAt    DateTime      @default(now())
+
+  @@index([quoteId])
+}
+
+model SourcingQuoteRevision {
+  id             String        @id @default(cuid())
+  quoteId        String
+  revisionNumber Int
+  snapshot       Json
+  quote          SourcingQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now())
+
+  @@index([quoteId])
+}
+
+model QuotationTemplate {
+  id        String        @id @default(cuid())
+  title     String
+  type      QuotationType
+  notes     String?
+  lineItems Json
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
 }
 
 model AuditLog {
