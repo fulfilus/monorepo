@@ -20,6 +20,7 @@ import { VendorListFilters, VendorService } from "../../vendor/services/vendor.s
         <a routerLink="/sourcing" class="btn-link" style="margin-right:8px;">Sourcing</a>
         <a routerLink="/customers" class="btn-link" style="margin-right:8px;">Customers</a>
         <a routerLink="/inbox" class="btn-link" style="margin-right:8px;">Inbox</a>
+        <button (click)="showMerge = !showMerge; mergeResult = null; mergeError = ''" class="btn-secondary" style="margin-right:8px;">Merge Duplicates</button>
         <button (click)="exportCsv()" class="btn-secondary" style="margin-right:8px;">Export CSV</button>
         <label style="cursor:pointer; font-weight:normal;">
           <input type="file" accept=".csv,text/csv" style="display:none;" (change)="onImportFile($event)" [disabled]="importing" />
@@ -37,6 +38,40 @@ import { VendorListFilters, VendorService } from "../../vendor/services/vendor.s
         <div *ngIf="importResult.errors.length" style="margin-top:6px;">
           <div *ngFor="let e of importResult.errors" style="font-size:12px; color:#dc2626;">Row {{ e.row }}: {{ e.reason }}</div>
         </div>
+      </div>
+
+      <!-- Merge panel -->
+      <div *ngIf="showMerge" style="margin-bottom:16px; padding:14px 16px; background:#fef3c7; border:1px solid #fde68a; border-radius:8px;">
+        <h3 style="font-size:13px; font-weight:600; margin-bottom:10px; color:#92400e;">Merge Duplicate Vendors</h3>
+        <p style="font-size:12px; color:#78350f; margin-bottom:12px;">
+          All data from the <strong>source</strong> vendor (quotations, bids, contact logs, documents, contracts) will be moved to the <strong>target</strong> vendor. The source vendor will be permanently deleted.
+        </p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+          <label style="font-size:12px; font-weight:500;">Source (to delete)
+            <select [(ngModel)]="mergeSourceId" style="display:block; margin-top:4px; padding:6px 8px; border:1px solid #d1d5db; border-radius:5px; font-size:13px; min-width:200px;">
+              <option value="">Select vendor...</option>
+              <option *ngFor="let v of vendors" [value]="v.id">{{ v.shopName }}</option>
+            </select>
+          </label>
+          <label style="font-size:12px; font-weight:500;">Target (to keep)
+            <select [(ngModel)]="mergeTargetId" style="display:block; margin-top:4px; padding:6px 8px; border:1px solid #d1d5db; border-radius:5px; font-size:13px; min-width:200px;">
+              <option value="">Select vendor...</option>
+              <option *ngFor="let v of vendors" [value]="v.id" [disabled]="v.id === mergeSourceId">{{ v.shopName }}</option>
+            </select>
+          </label>
+          <button (click)="doMerge()" [disabled]="!mergeSourceId || !mergeTargetId || mergeSourceId === mergeTargetId || merging"
+                  style="padding:7px 16px; background:#dc2626; color:#fff; border:none; border-radius:6px; font-size:13px; cursor:pointer; font-weight:500;">
+            {{ merging ? 'Merging...' : 'Merge & Delete Source' }}
+          </button>
+          <button (click)="showMerge = false; mergeResult = null"
+                  style="padding:7px 12px; background:none; border:1px solid #d1d5db; border-radius:6px; font-size:13px; cursor:pointer;">
+            Cancel
+          </button>
+        </div>
+        <div *ngIf="mergeResult" style="margin-top:10px; padding:8px 12px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; font-size:12px; color:#15803d;">
+          Merged "{{ mergeResult.deletedName }}" into "{{ mergeResult.survivingName }}". Source vendor deleted.
+        </div>
+        <div *ngIf="mergeError" class="error" style="margin-top:8px; font-size:12px;">{{ mergeError }}</div>
       </div>
 
       <!-- Filters -->
@@ -157,6 +192,13 @@ export class VendorListComponent implements OnInit, OnDestroy {
   importing = false;
   importResult: { imported: number; skipped: number; errors: { row: number; reason: string }[] } | null = null;
 
+  showMerge = false;
+  mergeSourceId = "";
+  mergeTargetId = "";
+  merging = false;
+  mergeResult: { survivingId: string; survivingName: string; deletedId: string; deletedName: string } | null = null;
+  mergeError = "";
+
   get allSelected(): boolean {
     return this.vendors.length > 0 && this.vendors.every(v => this.selectedIds.has(v.id));
   }
@@ -257,6 +299,29 @@ export class VendorListComponent implements OnInit, OnDestroy {
     this.vendorService.bulkStatus([...this.selectedIds], status).pipe(takeUntil(this.destroy$)).subscribe({
       next: () => { this.clearSelection(); this.bulkWorking = false; this.reload$.next(); },
       error: () => { this.errorMessage = "Bulk update failed."; this.bulkWorking = false; },
+    });
+  }
+
+  doMerge() {
+    if (!this.mergeSourceId || !this.mergeTargetId || this.mergeSourceId === this.mergeTargetId) return;
+    const sourceName = this.vendors.find(v => v.id === this.mergeSourceId)?.shopName ?? this.mergeSourceId;
+    const targetName = this.vendors.find(v => v.id === this.mergeTargetId)?.shopName ?? this.mergeTargetId;
+    if (!confirm(`Merge "${sourceName}" into "${targetName}"?\n\nThis will permanently delete "${sourceName}". All their data will be transferred to "${targetName}". This cannot be undone.`)) return;
+    this.merging = true;
+    this.mergeError = "";
+    this.mergeResult = null;
+    this.vendorService.mergeVendors(this.mergeSourceId, this.mergeTargetId).pipe(takeUntil(this.destroy$)).subscribe({
+      next: result => {
+        this.mergeResult = result;
+        this.merging = false;
+        this.mergeSourceId = "";
+        this.mergeTargetId = "";
+        this.reload$.next();
+      },
+      error: (err: unknown) => {
+        this.mergeError = (err as { error?: { message?: string } })?.error?.message ?? "Merge failed.";
+        this.merging = false;
+      },
     });
   }
 

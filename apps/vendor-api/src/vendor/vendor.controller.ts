@@ -40,6 +40,12 @@ export class VendorController {
     return this.vendorService.bulkUpdateStatus(dto.ids, dto.contactStatus);
   }
 
+  @Post("merge")
+  merge(@Body() body: { sourceId: string; targetId: string }) {
+    if (!body.sourceId || !body.targetId) throw new BadRequestException("sourceId and targetId are required");
+    return this.vendorService.merge(body.sourceId, body.targetId, "admin");
+  }
+
   @Post()
   create(@Body() dto: CreateVendorDto) {
     return this.vendorService.create(dto, "system");

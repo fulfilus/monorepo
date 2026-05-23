@@ -230,6 +230,35 @@ export class VendorService {
     });
   }
 
+  async merge(sourceId: string, targetId: string, mergedBy: string) {
+    if (sourceId === targetId) throw new Error("Source and target vendor must be different");
+    const [source, target] = await Promise.all([this.findOne(sourceId), this.findOne(targetId)]);
+
+    // Re-parent all relations from source → target in a single transaction
+    await this.prisma.$transaction([
+      this.prisma.quotation.updateMany({ where: { vendorId: sourceId }, data: { vendorId: targetId } }),
+      this.prisma.contactLog.updateMany({ where: { vendorId: sourceId }, data: { vendorId: targetId } }),
+      this.prisma.document.updateMany({ where: { vendorId: sourceId }, data: { vendorId: targetId } }),
+      this.prisma.enrichmentJob.updateMany({ where: { vendorId: sourceId }, data: { vendorId: targetId } }),
+      this.prisma.vendorBid.updateMany({ where: { vendorId: sourceId }, data: { vendorId: targetId } }),
+      this.prisma.agreedRateContract.updateMany({ where: { vendorId: sourceId }, data: { vendorId: targetId } }),
+      this.prisma.auditLog.updateMany({ where: { vendorId: sourceId }, data: { vendorId: targetId } }),
+      // Log the merge on the surviving vendor
+      this.prisma.auditLog.create({
+        data: {
+          vendorId: targetId,
+          action: "MERGE",
+          changedBy: mergedBy,
+          diff: { mergedFromId: sourceId, mergedFromName: source.shopName },
+        },
+      }),
+      // Delete source vendor (cascades VendorPayment, BankAccount, VendorDelivery)
+      this.prisma.vendor.delete({ where: { id: sourceId } }),
+    ]);
+
+    return { survivingId: targetId, survivingName: target.shopName, deletedId: sourceId, deletedName: source.shopName };
+  }
+
   async bulkImportCsv(csv: Buffer, importedBy: string): Promise<{ imported: number; skipped: number; errors: { row: number; reason: string }[] }> {
     const rows = parse(csv, { columns: true, skip_empty_lines: true, trim: true }) as Record<string, string>[];
     const errors: { row: number; reason: string }[] = [];

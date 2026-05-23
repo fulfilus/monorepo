@@ -109,4 +109,8 @@ export class VendorService {
     form.append("file", file);
     return this.http.post<{ imported: number; skipped: number; errors: { row: number; reason: string }[] }>(`${this.base}/bulk-import`, form);
   }
+
+  mergeVendors(sourceId: string, targetId: string): Observable<{ survivingId: string; survivingName: string; deletedId: string; deletedName: string }> {
+    return this.http.post<{ survivingId: string; survivingName: string; deletedId: string; deletedName: string }>(`${this.base}/merge`, { sourceId, targetId });
+  }
 }
