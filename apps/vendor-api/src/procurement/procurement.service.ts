@@ -277,6 +277,65 @@ export class ProcurementService {
     return { type: "SPLIT", quotations };
   }
 
+  async getPriceHistory(itemName: string) {
+    const items = await this.prisma.procurementItem.findMany({
+      where: { itemName: { contains: itemName, mode: "insensitive" } },
+      include: { round: { select: { id: true, title: true, status: true, createdAt: true } } },
+      orderBy: { round: { createdAt: "asc" } },
+    });
+
+    if (items.length === 0) return { itemName, rounds: [], vendors: [] };
+
+    const roundIds = [...new Set(items.map(i => i.roundId))];
+    const bids = await this.prisma.vendorBid.findMany({
+      where: { roundId: { in: roundIds }, status: { not: "DECLINED" } },
+      include: { vendor: { select: { id: true, shopName: true } } },
+    });
+
+    // Deduplicate rounds preserving order
+    const seenRounds = new Set<string>();
+    const rounds: { id: string; title: string; status: string; createdAt: Date }[] = [];
+    for (const item of items) {
+      if (!seenRounds.has(item.roundId)) {
+        seenRounds.add(item.roundId);
+        rounds.push(item.round);
+      }
+    }
+
+    // Build itemId → roundId map
+    const itemToRound: Record<string, string> = {};
+    for (const item of items) itemToRound[item.id] = item.roundId;
+
+    // Collect unique vendors
+    const vendorMap = new Map<string, { vendorId: string; shopName: string }>();
+    for (const bid of bids) {
+      if (!vendorMap.has(bid.vendorId)) {
+        vendorMap.set(bid.vendorId, { vendorId: bid.vendorId, shopName: bid.vendor.shopName });
+      }
+    }
+
+    // Build per-vendor price arrays indexed to rounds
+    const roundIndex = new Map(rounds.map((r, i) => [r.id, i]));
+    const vendors = Array.from(vendorMap.values()).map(v => {
+      const prices: (number | null)[] = new Array(rounds.length).fill(null);
+      for (const bid of bids) {
+        if (bid.vendorId !== v.vendorId) continue;
+        const priceMap = bid.lineItemPrices as Record<string, number> | null ?? {};
+        for (const item of items) {
+          if (item.roundId !== bid.roundId) continue;
+          const price = priceMap[item.id] ?? null;
+          if (price !== null) {
+            const idx = roundIndex.get(bid.roundId);
+            if (idx !== undefined) prices[idx] = price;
+          }
+        }
+      }
+      return { ...v, prices };
+    });
+
+    return { itemName, rounds, vendors };
+  }
+
   async listTemplates() {
     return this.prisma.procurementRoundTemplate.findMany({ orderBy: { updatedAt: "desc" } });
   }

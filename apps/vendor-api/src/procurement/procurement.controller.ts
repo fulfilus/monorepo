@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, NotFoundException, Param, ParseIntPipe, Post, Put, Query, Res, UsePipes, ValidationPipe } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, NotFoundException, Param, ParseIntPipe, Post, Put, Query, Res, UsePipes, ValidationPipe } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { FastifyReply } from "fastify";
 import { AddVendorBidDto, AwardDto, CreateProcurementDto, CreateTemplateDto, UpdateBidDto, UseTemplateDto } from "./procurement.dto";
@@ -13,6 +13,14 @@ export class ProcurementController {
     private readonly procurementService: ProcurementService,
     private readonly poPdfService: PoPdfService,
   ) {}
+
+  // --- Price history (declared before :id routes to prevent route shadowing) ---
+
+  @Get("price-history")
+  getPriceHistory(@Query("itemName") itemName: string) {
+    if (!itemName?.trim()) throw new BadRequestException("itemName query param is required");
+    return this.procurementService.getPriceHistory(itemName.trim());
+  }
 
   // --- Templates (declared before :id routes to prevent route shadowing) ---
 

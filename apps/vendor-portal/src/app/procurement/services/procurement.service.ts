@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from "@angular/common/http";
 import { Injectable } from "@angular/core";
-import { ComparisonResultDto, ProcurementRoundDto, ProcurementRoundTemplateDto, ProcurementTemplateItemDto, VendorBidDto } from "@fulfilus/shared";
+import { ComparisonResultDto, PriceHistoryDto, ProcurementRoundDto, ProcurementRoundTemplateDto, ProcurementTemplateItemDto, VendorBidDto } from "@fulfilus/shared";
 import { Observable } from "rxjs";
 import { environment } from "../../../environments/environment";
 
@@ -75,5 +75,10 @@ export class ProcurementService {
 
   useTemplate(templateId: string, title?: string): Observable<ProcurementRoundDto> {
     return this.http.post<ProcurementRoundDto>(`${this.base}/templates/${templateId}/use`, title ? { title } : {});
+  }
+
+  getPriceHistory(itemName: string): Observable<PriceHistoryDto> {
+    const params = new HttpParams().set("itemName", itemName);
+    return this.http.get<PriceHistoryDto>(`${this.base}/price-history`, { params });
   }
 }

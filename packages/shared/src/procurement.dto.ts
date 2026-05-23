@@ -36,6 +36,25 @@ export interface ProcurementRoundDto {
   updatedAt: string;
 }
 
+export interface PriceHistoryRoundDto {
+  id: string;
+  title: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface PriceHistoryVendorDto {
+  vendorId: string;
+  shopName: string;
+  prices: (number | null)[];
+}
+
+export interface PriceHistoryDto {
+  itemName: string;
+  rounds: PriceHistoryRoundDto[];
+  vendors: PriceHistoryVendorDto[];
+}
+
 export interface ProcurementTemplateItemDto {
   itemName: string;
   description?: string | null;
