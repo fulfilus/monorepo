@@ -191,6 +191,8 @@ export class ProcurementFormComponent implements OnDestroy {
       unit: [""],
       targetPrice: [null],
       barcode: [""],
+      hsnCode: [""],
+      gstRate: [null],
     });
   }
 
@@ -315,7 +317,7 @@ export class ProcurementFormComponent implements OnDestroy {
     if (this.form.invalid) return;
     this.saving = true;
     this.error = "";
-    const v = this.form.value as { title: string; notes: string; items: { itemName: string; description: string; quantity: number | null; unit: string; targetPrice: number | null; barcode: string }[] };
+    const v = this.form.value as { title: string; notes: string; items: { itemName: string; description: string; quantity: number | null; unit: string; targetPrice: number | null; barcode: string; hsnCode: string; gstRate: number | null }[] };
     const items = v.items.map(i => ({
       itemName: i.itemName,
       description: i.description || undefined,
@@ -323,6 +325,8 @@ export class ProcurementFormComponent implements OnDestroy {
       unit: i.unit || undefined,
       targetPrice: i.targetPrice ?? undefined,
       barcode: i.barcode || undefined,
+      hsnCode: i.hsnCode || undefined,
+      gstRate: i.gstRate ?? undefined,
     }));
     this.procurementService.create(v.title, v.notes, items).subscribe({
       next: round => { void this.router.navigate(["/procurement", round.id]); },

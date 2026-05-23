@@ -65,6 +65,11 @@ export class QuotationService {
     return this.http.delete<void>(`${environment.apiUrl}/quotation-templates/${id}`);
   }
 
+  hsnLookup(code: string): Observable<{ code: string; gstRate: number | null; slabs: number[] }> {
+    const params = new HttpParams().set("code", code);
+    return this.http.get<{ code: string; gstRate: number | null; slabs: number[] }>(`${this.base}/hsn-lookup`, { params });
+  }
+
   buildWhatsAppLink(quotation: QuotationResponseDto, whatsappNumber: string): string {
     const phone = whatsappNumber.replace(/\D/g, "");
     const text = encodeURIComponent(

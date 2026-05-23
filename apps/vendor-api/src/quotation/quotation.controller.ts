@@ -1,5 +1,6 @@
 import "@fastify/multipart";
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -16,6 +17,7 @@ import { ApiTags } from "@nestjs/swagger";
 import { FastifyReply } from "fastify";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
+import { gstRateForHsn, GST_SLABS } from "../common/gst.util";
 import { CreateQuotationDto } from "./dto/create-quotation.dto";
 import { UpdateQuotationDto } from "./dto/update-quotation.dto";
 import { SuggestItemsDto } from "./dto/suggest-items.dto";
@@ -29,6 +31,13 @@ export class QuotationController {
   @Post()
   create(@Body() dto: CreateQuotationDto) {
     return this.quotationService.create(dto);
+  }
+
+  @Get("hsn-lookup")
+  hsnLookup(@Query("code") code: string) {
+    if (!code?.trim()) throw new BadRequestException("code query param is required");
+    const rate = gstRateForHsn(code.trim());
+    return { code: code.trim(), gstRate: rate, slabs: GST_SLABS };
   }
 
   @Get("accounting-export")

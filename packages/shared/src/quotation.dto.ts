@@ -8,6 +8,8 @@ export interface LineItemDto {
   unit?: string | null;
   unitPrice?: number | null;
   totalPrice?: number | null;
+  hsnCode?: string | null;
+  gstRate?: number | null;
   aiSuggested?: boolean;
   sortOrder?: number;
 }

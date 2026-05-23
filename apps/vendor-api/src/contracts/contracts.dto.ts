@@ -9,6 +9,8 @@ export class CreateContractDto {
   @IsOptional() @IsString() unit?: string;
   @IsOptional() @IsNumber() @Min(0) minQty?: number;
   @IsOptional() @IsNumber() @Min(0) tolerancePct?: number;
+  @IsOptional() @IsString() hsnCode?: string;
+  @IsOptional() @IsNumber() @Min(0) gstRate?: number;
   @IsOptional() @IsDateString() validFrom?: string;
   @IsOptional() @IsDateString() validUntil?: string;
   @IsOptional() @IsString() notes?: string;
@@ -19,6 +21,8 @@ export class UpdateContractDto {
   @IsOptional() @IsString() unit?: string;
   @IsOptional() @IsNumber() @Min(0) minQty?: number;
   @IsOptional() @IsNumber() @Min(0) tolerancePct?: number;
+  @IsOptional() @IsString() hsnCode?: string;
+  @IsOptional() @IsNumber() @Min(0) gstRate?: number;
   @IsOptional() @IsDateString() validUntil?: string;
   @IsOptional() @IsString() notes?: string;
   @IsOptional() @IsEnum(ContractStatus) status?: ContractStatus;

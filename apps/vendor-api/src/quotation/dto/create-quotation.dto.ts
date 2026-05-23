@@ -41,6 +41,16 @@ export class LineItemDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
+  hsnCode?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  gstRate?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsBoolean()
   aiSuggested?: boolean;
 

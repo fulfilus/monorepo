@@ -8,6 +8,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { QuotationStatus, QuotationType, AiSuggestedItem } from "@fulfilus/shared";
 import { PrismaService } from "../common/prisma.service";
 import { PdfService } from "./pdf.service";
+import { gstBreakdown } from "../common/gst.util";
 import type { CreateQuotationDto } from "./dto/create-quotation.dto";
 import type { UpdateQuotationDto } from "./dto/update-quotation.dto";
 
@@ -51,6 +52,8 @@ export class QuotationService {
             unit: item.unit,
             unitPrice: item.unitPrice,
             totalPrice: this.itemTotal(item),
+            hsnCode: item.hsnCode,
+            gstRate: item.gstRate,
             aiSuggested: item.aiSuggested ?? false,
             sortOrder: item.sortOrder ?? idx,
           })),
@@ -120,6 +123,8 @@ export class QuotationService {
                 unit: item.unit,
                 unitPrice: item.unitPrice,
                 totalPrice: this.itemTotal(item),
+                hsnCode: item.hsnCode,
+                gstRate: item.gstRate,
                 aiSuggested: item.aiSuggested ?? false,
                 sortOrder: item.sortOrder ?? idx,
               })),
@@ -185,13 +190,13 @@ Suggest 6-8 relevant items for this quotation.`;
       orderBy: { createdAt: "asc" },
     });
 
-    const GST_RATE = 18;
+    const DEFAULT_GST = 18;
     const escape = (v: string | number | null | undefined) =>
       `"${String(v ?? "").replace(/"/g, '""')}"`;
 
     const header = [
       "Date", "Reference", "Voucher Type", "Party", "GST Number",
-      "Item", "Description", "Quantity", "Unit",
+      "Item", "HSN Code", "Description", "Quantity", "Unit",
       "Rate (INR)", "Amount (INR)", "GST %", "CGST (INR)", "SGST (INR)", "Total with GST (INR)",
     ].map(escape).join(",");
 
@@ -201,16 +206,16 @@ Suggest 6-8 relevant items for this quotation.`;
       for (const item of q.lineItems) {
         const amount = item.totalPrice ??
           ((item.quantity != null && item.unitPrice != null) ? item.quantity * item.unitPrice : 0);
-        const gstAmount = Math.round(amount * GST_RATE) / 100;
-        const cgst = Math.round(gstAmount * 50) / 100;
+        const gstRate = item.gstRate ?? DEFAULT_GST;
+        const { cgst, sgst, total } = gstBreakdown(amount, gstRate);
         rows.push([
           date, q.referenceNumber, "Purchase",
           q.vendor.shopName, q.vendor.gstNumber ?? "",
-          item.itemName, item.description ?? "",
+          item.itemName, item.hsnCode ?? "", item.description ?? "",
           item.quantity ?? "", item.unit ?? "",
           item.unitPrice ?? "", amount.toFixed(2),
-          GST_RATE, cgst.toFixed(2), cgst.toFixed(2),
-          (amount + gstAmount).toFixed(2),
+          gstRate, cgst.toFixed(2), sgst.toFixed(2),
+          total.toFixed(2),
         ].map(escape).join(","));
       }
     }

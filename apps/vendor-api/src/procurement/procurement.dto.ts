@@ -10,6 +10,8 @@ export class ProcurementItemDto {
   @IsOptional() @IsString() unit?: string;
   @IsOptional() @IsNumber() targetPrice?: number;
   @IsOptional() @IsString() barcode?: string;
+  @IsOptional() @IsString() hsnCode?: string;
+  @IsOptional() @IsNumber() gstRate?: number;
   @IsOptional() @IsNumber() sortOrder?: number;
 }
 

@@ -187,6 +187,8 @@ model QuotationLineItem {
   unit          String?
   unitPrice     Float?
   totalPrice    Float?
+  hsnCode       String?
+  gstRate       Float?
   aiSuggested   Boolean   @default(false)
   sortOrder     Int       @default(0)
   quotation     Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
@@ -250,6 +252,8 @@ model ProcurementItem {
   quantity    Float?
   unit        String?
   targetPrice Float?
+  hsnCode     String?
+  gstRate     Float?
   barcode     String?
   sortOrder   Int              @default(0)
   round       ProcurementRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
@@ -410,6 +414,8 @@ model SourcingQuoteItem {
   sourceName   String?
   markupPct    Float?
   sellingPrice Float?
+  hsnCode      String?
+  gstRate      Float?
   sortOrder    Int           @default(0)
   quote        SourcingQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
   createdAt    DateTime      @default(now())
@@ -452,6 +458,8 @@ model AgreedRateContract {
   unit         String?
   minQty       Float?
   tolerancePct Float          @default(0)
+  hsnCode      String?
+  gstRate      Float?
   validFrom    DateTime       @default(now())
   validUntil   DateTime?
   notes        String?

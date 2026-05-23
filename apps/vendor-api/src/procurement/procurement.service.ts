@@ -485,23 +485,21 @@ export class ProcurementService {
   }
 
   async barcodeLookup(barcode: string) {
-    // Search previous procurement items by barcode
     const byBarcode = await this.prisma.procurementItem.findFirst({
       where: { barcode },
       orderBy: { round: { createdAt: "desc" } },
-      select: { itemName: true, description: true, unit: true, targetPrice: true, barcode: true },
+      select: { itemName: true, description: true, unit: true, targetPrice: true, hsnCode: true, gstRate: true, barcode: true },
     });
     if (byBarcode) return { found: true, ...byBarcode };
 
-    // Fall back to matching quotation line items by item name containing the barcode
     const byName = await this.prisma.quotationLineItem.findFirst({
       where: { itemName: { contains: barcode, mode: "insensitive" } },
       orderBy: { createdAt: "desc" },
-      select: { itemName: true, description: true, unit: true },
+      select: { itemName: true, description: true, unit: true, hsnCode: true, gstRate: true },
     });
-    if (byName) return { found: true, itemName: byName.itemName, description: byName.description, unit: byName.unit, targetPrice: null, barcode };
+    if (byName) return { found: true, itemName: byName.itemName, description: byName.description, unit: byName.unit, hsnCode: byName.hsnCode, gstRate: byName.gstRate, targetPrice: null, barcode };
 
-    return { found: false, barcode, itemName: null, description: null, unit: null, targetPrice: null };
+    return { found: false, barcode, itemName: null, description: null, unit: null, hsnCode: null, gstRate: null, targetPrice: null };
   }
 
   async getPoQuotation(roundId: string, quotationId: string) {

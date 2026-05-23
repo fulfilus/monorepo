@@ -6,6 +6,8 @@ import { VendorResponseDto } from "@fulfilus/shared";
 import { VendorService } from "../../vendor/services/vendor.service";
 import { ContractsService } from "../services/contracts.service";
 
+const GST_SLABS = [0, 5, 12, 18, 28];
+
 interface NewContractForm {
   vendorId: string;
   itemName: string;
@@ -13,6 +15,8 @@ interface NewContractForm {
   unit: string;
   minQty: number | null;
   tolerancePct: number;
+  hsnCode: string;
+  gstRate: number | null;
   validFrom: string;
   validUntil: string;
   notes: string;
@@ -71,6 +75,15 @@ interface NewContractForm {
           <label style="font-size:12px; font-weight:500;">Tolerance %
             <input [(ngModel)]="form.tolerancePct" type="number" min="0" max="100" style="width:100%; margin-top:4px; padding:6px 8px; border:1px solid #d1d5db; border-radius:5px; font-size:13px;" />
           </label>
+          <label style="font-size:12px; font-weight:500;">HSN Code
+            <input [(ngModel)]="form.hsnCode" style="width:100%; margin-top:4px; padding:6px 8px; border:1px solid #d1d5db; border-radius:5px; font-size:13px;" placeholder="e.g. 7318" />
+          </label>
+          <label style="font-size:12px; font-weight:500;">GST %
+            <select [(ngModel)]="form.gstRate" style="width:100%; margin-top:4px; padding:6px 8px; border:1px solid #d1d5db; border-radius:5px; font-size:13px;">
+              <option [ngValue]="null">— Select —</option>
+              <option *ngFor="let s of gstSlabs" [ngValue]="s">{{ s }}%</option>
+            </select>
+          </label>
           <label style="font-size:12px; font-weight:500;">Valid From
             <input [(ngModel)]="form.validFrom" type="date" style="width:100%; margin-top:4px; padding:6px 8px; border:1px solid #d1d5db; border-radius:5px; font-size:13px;" />
           </label>
@@ -108,6 +121,7 @@ interface NewContractForm {
               <th style="padding:8px 10px; text-align:left;">Vendor</th>
               <th style="padding:8px 10px; text-align:left;">Item</th>
               <th style="padding:8px 10px; text-align:right;">Rate</th>
+              <th style="padding:8px 10px; text-align:left;">HSN / GST</th>
               <th style="padding:8px 10px; text-align:right;">Tolerance</th>
               <th style="padding:8px 10px; text-align:left;">Validity</th>
               <th style="padding:8px 10px; text-align:center;">Status</th>
@@ -124,6 +138,12 @@ interface NewContractForm {
                 <span *ngIf="c.minQty" style="font-size:11px; color:#6b7280; display:block;">Min: {{ c.minQty }}</span>
               </td>
               <td style="padding:8px 10px; text-align:right; font-weight:600;">₹{{ c.unitPrice }}</td>
+              <td style="padding:8px 10px; font-size:12px; color:#6b7280;">
+                <span *ngIf="c.hsnCode">{{ c.hsnCode }}</span>
+                <span *ngIf="c.hsnCode && c.gstRate"> / </span>
+                <span *ngIf="c.gstRate != null" style="color:#d97706;">{{ c.gstRate }}% GST</span>
+                <span *ngIf="!c.hsnCode && c.gstRate == null">—</span>
+              </td>
               <td style="padding:8px 10px; text-align:right; color:#6b7280;">{{ c.tolerancePct }}%</td>
               <td style="padding:8px 10px; font-size:12px; color:#6b7280;">
                 {{ c.validFrom | date:'dd MMM yy' }}
@@ -164,10 +184,11 @@ export class ContractsListComponent implements OnInit {
   formError = "";
   filterItem = "";
   filterStatus = "ACTIVE";
+  gstSlabs = GST_SLABS;
 
   form: NewContractForm = {
     vendorId: "", itemName: "", unitPrice: null, unit: "", minQty: null,
-    tolerancePct: 0, validFrom: "", validUntil: "", notes: "",
+    tolerancePct: 0, hsnCode: "", gstRate: null, validFrom: "", validUntil: "", notes: "",
   };
 
   constructor(
@@ -199,6 +220,8 @@ export class ContractsListComponent implements OnInit {
       unit: this.form.unit || undefined,
       minQty: this.form.minQty ?? undefined,
       tolerancePct: this.form.tolerancePct,
+      hsnCode: this.form.hsnCode || undefined,
+      gstRate: this.form.gstRate ?? undefined,
       validFrom: this.form.validFrom || undefined,
       validUntil: this.form.validUntil || undefined,
       notes: this.form.notes || undefined,
@@ -207,7 +230,7 @@ export class ContractsListComponent implements OnInit {
         this.contracts = [c, ...this.contracts];
         this.saving = false;
         this.showForm = false;
-        this.form = { vendorId: "", itemName: "", unitPrice: null, unit: "", minQty: null, tolerancePct: 0, validFrom: "", validUntil: "", notes: "" };
+        this.form = { vendorId: "", itemName: "", unitPrice: null, unit: "", minQty: null, tolerancePct: 0, hsnCode: "", gstRate: null, validFrom: "", validUntil: "", notes: "" };
       },
       error: () => { this.formError = "Failed to create contract."; this.saving = false; },
     });

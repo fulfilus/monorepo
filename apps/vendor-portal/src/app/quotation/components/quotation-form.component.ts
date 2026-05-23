@@ -14,6 +14,8 @@ import { FormsModule } from "@angular/forms";
 import { Subject, takeUntil } from "rxjs";
 import { QuotationService } from "../services/quotation.service";
 
+const GST_SLABS = [0, 5, 12, 18, 28];
+
 @Component({
   selector: "app-quotation-form",
   standalone: true,
@@ -69,45 +71,75 @@ import { QuotationService } from "../services/quotation.service";
             <table style="width:100%; border-collapse:collapse; font-size:13px;">
               <thead>
                 <tr style="background:#f3f4f6;">
-                  <th style="padding:8px; text-align:left;">Item Name *</th>
-                  <th style="padding:8px; text-align:left;">Description</th>
-                  <th style="padding:8px; text-align:right;">Qty</th>
-                  <th style="padding:8px; text-align:left;">Unit</th>
-                  <th style="padding:8px; text-align:right;">Unit Price (₹)</th>
-                  <th style="padding:8px; text-align:right;">Total</th>
-                  <th style="padding:8px;"></th>
+                  <th style="padding:8px; text-align:left; min-width:140px;">Item Name *</th>
+                  <th style="padding:8px; text-align:left; min-width:100px;">Description</th>
+                  <th style="padding:8px; text-align:right; width:70px;">Qty</th>
+                  <th style="padding:8px; text-align:left; width:55px;">Unit</th>
+                  <th style="padding:8px; text-align:right; width:100px;">Unit Price (₹)</th>
+                  <th style="padding:8px; text-align:left; width:80px;">HSN Code</th>
+                  <th style="padding:8px; text-align:right; width:70px;">GST %</th>
+                  <th style="padding:8px; text-align:right; width:90px;">Subtotal</th>
+                  <th style="padding:8px; text-align:right; width:80px;">GST Amt</th>
+                  <th style="padding:8px; text-align:right; width:95px;">Total incl. GST</th>
+                  <th style="padding:8px; width:28px;"></th>
                 </tr>
               </thead>
               <tbody formArrayName="lineItems">
                 <tr *ngFor="let row of lineItemsArray.controls; let i = index" [formGroupName]="i"
                     [style.background]="aiSuggestedIndices.has(i) ? '#faf5ff' : 'white'">
                   <td style="padding:4px 8px;">
-                    <input formControlName="itemName" style="width:140px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px;" />
+                    <input formControlName="itemName" style="width:130px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px;" />
                   </td>
                   <td style="padding:4px 8px;">
-                    <input formControlName="description" style="width:120px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px;" />
+                    <input formControlName="description" style="width:95px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px;" />
                   </td>
                   <td style="padding:4px 8px;">
-                    <input formControlName="quantity" type="number" min="0" style="width:70px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; text-align:right;" />
+                    <input formControlName="quantity" type="number" min="0" style="width:62px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; text-align:right;" />
                   </td>
                   <td style="padding:4px 8px;">
-                    <input formControlName="unit" style="width:60px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px;" />
+                    <input formControlName="unit" style="width:48px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px;" />
                   </td>
                   <td style="padding:4px 8px;">
-                    <input formControlName="unitPrice" type="number" min="0" style="width:90px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; text-align:right;" (input)="recalcTotal(i)" />
+                    <input formControlName="unitPrice" type="number" min="0" style="width:88px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; text-align:right;" />
+                  </td>
+                  <td style="padding:4px 8px;">
+                    <input formControlName="hsnCode" style="width:72px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;"
+                           placeholder="e.g. 7318" (blur)="onHsnBlur(i)" />
+                    <div *ngIf="hsnHints[i]" style="font-size:10px; color:#7c3aed; margin-top:1px;">{{ hsnHints[i] }}</div>
+                  </td>
+                  <td style="padding:4px 8px;">
+                    <select formControlName="gstRate" style="width:62px; padding:4px 4px; border:1px solid #d1d5db; border-radius:4px; font-size:13px;">
+                      <option [ngValue]="null">—</option>
+                      <option *ngFor="let s of gstSlabs" [ngValue]="s">{{ s }}%</option>
+                    </select>
                   </td>
                   <td style="padding:4px 8px; text-align:right; color:#374151;">
+                    {{ rowSubtotal(i) != null ? ('₹' + rowSubtotal(i)!.toFixed(2)) : '—' }}
+                  </td>
+                  <td style="padding:4px 8px; text-align:right; color:#d97706; font-size:12px;">
+                    {{ rowGst(i) != null ? ('₹' + rowGst(i)!.toFixed(2)) : '—' }}
+                  </td>
+                  <td style="padding:4px 8px; text-align:right; font-weight:600; color:#16a34a;">
                     {{ rowTotal(i) != null ? ('₹' + rowTotal(i)!.toFixed(2)) : '—' }}
                   </td>
                   <td style="padding:4px 8px;">
-                    <button type="button" (click)="removeRow(i)" style="color:#dc2626; background:none; border:none; cursor:pointer; font-size:16px;">✕</button>
+                    <button type="button" (click)="removeRow(i)" style="color:#dc2626; background:none; border:none; cursor:pointer; font-size:14px;">&#x2715;</button>
                   </td>
                 </tr>
               </tbody>
             </table>
 
-            <div *ngIf="grandTotal != null" style="text-align:right; padding:10px 8px; font-weight:600; font-size:14px;">
-              Subtotal: ₹{{ grandTotal.toFixed(2) }}
+            <!-- Totals footer -->
+            <div style="text-align:right; padding:10px 8px; font-size:13px; border-top:1px solid #e5e7eb; margin-top:4px;">
+              <div style="color:#6b7280; margin-bottom:4px;">
+                Subtotal: <strong>₹{{ grandSubtotal?.toFixed(2) ?? '—' }}</strong>
+              </div>
+              <div style="color:#d97706; margin-bottom:4px;">
+                Total GST: <strong>₹{{ grandGst?.toFixed(2) ?? '—' }}</strong>
+              </div>
+              <div style="font-size:15px; font-weight:700; color:#16a34a;">
+                Grand Total: ₹{{ grandTotal?.toFixed(2) ?? '—' }}
+              </div>
             </div>
           </div>
         </section>
@@ -128,7 +160,7 @@ import { QuotationService } from "../services/quotation.service";
         <div *ngIf="showTemplatePicker" style="margin-top:16px; padding:12px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
             <h4 style="margin:0; font-size:13px; font-weight:600;">Load from Template</h4>
-            <button type="button" (click)="showTemplatePicker=false" style="background:none;border:none;cursor:pointer;color:#6b7280;font-size:16px;">✕</button>
+            <button type="button" (click)="showTemplatePicker=false" style="background:none;border:none;cursor:pointer;color:#6b7280;font-size:16px;">&times;</button>
           </div>
           <div *ngIf="templatesLoading" class="empty-state" style="padding:8px;">Loading...</div>
           <div *ngIf="!templatesLoading && templates.length === 0" class="empty-state" style="padding:8px; font-size:12px;">No templates saved yet.</div>
@@ -166,6 +198,8 @@ export class QuotationFormComponent implements OnInit, OnDestroy {
   errorMessage = "";
 
   aiSuggestedIndices = new Set<number>();
+  hsnHints: Record<number, string> = {};
+  gstSlabs = GST_SLABS;
 
   templates: QuotationTemplateResponseDto[] = [];
   templatesLoading = false;
@@ -223,22 +257,43 @@ export class QuotationFormComponent implements OnInit, OnDestroy {
     return this.form.get("lineItems") as FormArray;
   }
 
-  addRow(item?: { itemName?: string; description?: string | null; quantity?: number | null; unit?: string | null; unitPrice?: number | null }) {
+  addRow(item?: { itemName?: string; description?: string | null; quantity?: number | null; unit?: string | null; unitPrice?: number | null; hsnCode?: string | null; gstRate?: number | null }) {
     this.lineItemsArray.push(this.fb.group({
       itemName: [item?.itemName ?? "", Validators.required],
       description: [item?.description ?? ""],
       quantity: [item?.quantity ?? null],
       unit: [item?.unit ?? ""],
       unitPrice: [item?.unitPrice ?? null],
+      hsnCode: [item?.hsnCode ?? ""],
+      gstRate: [item?.gstRate ?? null],
     }));
   }
 
   removeRow(i: number) {
     this.lineItemsArray.removeAt(i);
-    this.aiSuggestedIndices.delete(i);
+    delete this.hsnHints[i];
     const updated = new Set<number>();
     this.aiSuggestedIndices.forEach(idx => { if (idx > i) updated.add(idx - 1); else if (idx < i) updated.add(idx); });
     this.aiSuggestedIndices = updated;
+  }
+
+  onHsnBlur(i: number) {
+    const code = (this.lineItemsArray.at(i).get("hsnCode")?.value as string ?? "").trim();
+    if (!code) { delete this.hsnHints[i]; return; }
+
+    this.quotationService.hsnLookup(code).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (res: { code: string; gstRate: number | null; slabs: number[] }) => {
+        if (res.gstRate !== null) {
+          this.lineItemsArray.at(i).patchValue({ gstRate: res.gstRate });
+          this.hsnHints[i] = `Auto-set ${res.gstRate}% GST`;
+          setTimeout(() => { delete this.hsnHints[i]; }, 3000);
+        } else {
+          this.hsnHints[i] = "HSN not found — set GST manually";
+          setTimeout(() => { delete this.hsnHints[i]; }, 3000);
+        }
+      },
+      error: () => { delete this.hsnHints[i]; },
+    });
   }
 
   suggestItems() {
@@ -275,6 +330,7 @@ export class QuotationFormComponent implements OnInit, OnDestroy {
     this.form.patchValue({ type: t.type, notes: t.notes ?? "" });
     while (this.lineItemsArray.length) this.lineItemsArray.removeAt(0);
     this.aiSuggestedIndices.clear();
+    this.hsnHints = {};
     (t.lineItems ?? []).forEach(item => this.addRow(item));
     this.showTemplatePicker = false;
     this.templateMessage = `Loaded template: ${t.title}`;
@@ -286,7 +342,7 @@ export class QuotationFormComponent implements OnInit, OnDestroy {
     const name = prompt("Template name:");
     if (!name?.trim()) return;
     this.templateSaving = true;
-    const v = this.form.value as { type: QuotationType; notes: string; lineItems: { itemName: string; description: string; quantity: number | null; unit: string; unitPrice: number | null }[] };
+    const v = this.form.value as { type: QuotationType; notes: string; lineItems: { itemName: string; description: string; quantity: number | null; unit: string; unitPrice: number | null; hsnCode: string; gstRate: number | null }[] };
     this.quotationService.saveAsTemplate(name.trim(), v.type, v.notes || null, v.lineItems.map((item, i) => ({ ...item, sortOrder: i }))).pipe(takeUntil(this.destroy$)).subscribe({
       next: t => {
         this.templates = [t, ...this.templates];
@@ -306,20 +362,51 @@ export class QuotationFormComponent implements OnInit, OnDestroy {
     });
   }
 
-  recalcTotal(_i: number) { /* totals are computed live via rowTotal() */ }
-
-  rowTotal(i: number): number | null {
+  private rowValues(i: number): { qty: number | null; price: number | null; gstRate: number | null } {
     const row = this.lineItemsArray.at(i) as AbstractControl;
-    const qty = row.get("quantity")?.value as number | null;
-    const price = row.get("unitPrice")?.value as number | null;
+    return {
+      qty: row.get("quantity")?.value as number | null,
+      price: row.get("unitPrice")?.value as number | null,
+      gstRate: row.get("gstRate")?.value as number | null,
+    };
+  }
+
+  rowSubtotal(i: number): number | null {
+    const { qty, price } = this.rowValues(i);
     if (qty != null && price != null) return qty * price;
     return null;
   }
 
+  rowGst(i: number): number | null {
+    const subtotal = this.rowSubtotal(i);
+    const { gstRate } = this.rowValues(i);
+    if (subtotal == null || gstRate == null) return null;
+    return Math.round(subtotal * gstRate) / 100;
+  }
+
+  rowTotal(i: number): number | null {
+    const subtotal = this.rowSubtotal(i);
+    const gst = this.rowGst(i);
+    if (subtotal == null) return null;
+    return subtotal + (gst ?? 0);
+  }
+
+  get grandSubtotal(): number | null {
+    const vals = Array.from({ length: this.lineItemsArray.length }, (_, i) => this.rowSubtotal(i));
+    if (vals.every(v => v == null)) return null;
+    return vals.reduce<number>((s, v) => s + (v ?? 0), 0);
+  }
+
+  get grandGst(): number | null {
+    const vals = Array.from({ length: this.lineItemsArray.length }, (_, i) => this.rowGst(i));
+    if (vals.every(v => v == null)) return null;
+    return vals.reduce<number>((s, v) => s + (v ?? 0), 0);
+  }
+
   get grandTotal(): number | null {
-    const totals = Array.from({ length: this.lineItemsArray.length }, (_, i) => this.rowTotal(i));
-    if (totals.every(t => t == null)) return null;
-    return totals.reduce<number>((sum, t) => sum + (t ?? 0), 0);
+    const sub = this.grandSubtotal;
+    if (sub == null) return null;
+    return sub + (this.grandGst ?? 0);
   }
 
   save() {
@@ -329,13 +416,15 @@ export class QuotationFormComponent implements OnInit, OnDestroy {
     this.errorMessage = "";
 
     const value = this.form.value;
-    const lineItems = (value.lineItems as { itemName: string; description: string; quantity: number | null; unit: string; unitPrice: number | null }[])
+    const lineItems = (value.lineItems as { itemName: string; description: string; quantity: number | null; unit: string; unitPrice: number | null; hsnCode: string; gstRate: number | null }[])
       .map((item, i) => ({
         itemName: item.itemName,
         description: item.description || undefined,
         quantity: item.quantity,
         unit: item.unit || undefined,
         unitPrice: item.unitPrice,
+        hsnCode: item.hsnCode || undefined,
+        gstRate: item.gstRate ?? undefined,
         aiSuggested: this.aiSuggestedIndices.has(i),
         sortOrder: i,
       }));

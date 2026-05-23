@@ -20,7 +20,8 @@ export class ContractsService {
 
   create(payload: {
     vendorId: string; itemName: string; unitPrice: number; unit?: string;
-    minQty?: number; tolerancePct?: number; validFrom?: string; validUntil?: string; notes?: string;
+    minQty?: number; tolerancePct?: number; hsnCode?: string; gstRate?: number;
+    validFrom?: string; validUntil?: string; notes?: string;
   }): Observable<AgreedRateContractDto> {
     return this.http.post<AgreedRateContractDto>(this.base, payload);
   }
