@@ -10,7 +10,7 @@ export class ProcurementService {
 
   constructor(private readonly http: HttpClient) {}
 
-  create(title: string, notes: string, items: { itemName: string; description?: string; quantity?: number; unit?: string; targetPrice?: number }[]): Observable<ProcurementRoundDto> {
+  create(title: string, notes: string, items: { itemName: string; description?: string; quantity?: number; unit?: string; targetPrice?: number; barcode?: string }[]): Observable<ProcurementRoundDto> {
     return this.http.post<ProcurementRoundDto>(this.base, { title, notes, items });
   }
 
@@ -84,5 +84,10 @@ export class ProcurementService {
 
   getVendorScorecard(): Observable<VendorScorecardDto[]> {
     return this.http.get<VendorScorecardDto[]>(`${this.base}/vendor-scorecard`);
+  }
+
+  barcodeLookup(barcode: string): Observable<{ found: boolean; barcode: string; itemName: string | null; description: string | null; unit: string | null; targetPrice: number | null }> {
+    const params = new HttpParams().set("barcode", barcode);
+    return this.http.get<{ found: boolean; barcode: string; itemName: string | null; description: string | null; unit: string | null; targetPrice: number | null }>(`${this.base}/barcode-lookup`, { params });
   }
 }

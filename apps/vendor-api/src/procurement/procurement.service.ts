@@ -18,7 +18,15 @@ export class ProcurementService {
         title: dto.title,
         notes: dto.notes,
         items: {
-          create: dto.items.map((item, i) => ({ ...item, sortOrder: item.sortOrder ?? i })),
+          create: dto.items.map((item, i) => ({
+            itemName: item.itemName,
+            description: item.description,
+            quantity: item.quantity,
+            unit: item.unit,
+            targetPrice: item.targetPrice,
+            barcode: item.barcode,
+            sortOrder: item.sortOrder ?? i,
+          })),
         },
       },
       include: { items: { orderBy: { sortOrder: "asc" } }, vendorBids: true },
@@ -474,6 +482,26 @@ export class ProcurementService {
     });
     await this.prisma.procurementRound.update({ where: { id: round.id }, data: { templateId } });
     return round;
+  }
+
+  async barcodeLookup(barcode: string) {
+    // Search previous procurement items by barcode
+    const byBarcode = await this.prisma.procurementItem.findFirst({
+      where: { barcode },
+      orderBy: { round: { createdAt: "desc" } },
+      select: { itemName: true, description: true, unit: true, targetPrice: true, barcode: true },
+    });
+    if (byBarcode) return { found: true, ...byBarcode };
+
+    // Fall back to matching quotation line items by item name containing the barcode
+    const byName = await this.prisma.quotationLineItem.findFirst({
+      where: { itemName: { contains: barcode, mode: "insensitive" } },
+      orderBy: { createdAt: "desc" },
+      select: { itemName: true, description: true, unit: true },
+    });
+    if (byName) return { found: true, itemName: byName.itemName, description: byName.description, unit: byName.unit, targetPrice: null, barcode };
+
+    return { found: false, barcode, itemName: null, description: null, unit: null, targetPrice: null };
   }
 
   async getPoQuotation(roundId: string, quotationId: string) {

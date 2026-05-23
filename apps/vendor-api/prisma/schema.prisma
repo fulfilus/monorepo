@@ -250,10 +250,12 @@ model ProcurementItem {
   quantity    Float?
   unit        String?
   targetPrice Float?
+  barcode     String?
   sortOrder   Int              @default(0)
   round       ProcurementRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
 
   @@index([roundId])
+  @@index([barcode])
 }
 
 model VendorBid {

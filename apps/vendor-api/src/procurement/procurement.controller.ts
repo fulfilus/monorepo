@@ -52,6 +52,14 @@ export class ProcurementController {
     return this.procurementService.useTemplate(templateId, dto);
   }
 
+  // --- Barcode lookup (declared before :id routes) ---
+
+  @Get("barcode-lookup")
+  barcodeLookup(@Query("barcode") barcode: string) {
+    if (!barcode?.trim()) throw new BadRequestException("barcode query param is required");
+    return this.procurementService.barcodeLookup(barcode.trim());
+  }
+
   // --- Rounds ---
 
   @Post()
