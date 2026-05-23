@@ -225,10 +225,20 @@ model ProcurementRound {
   title      String
   status     ProcurementStatus @default(OPEN)
   notes      String?
+  templateId String?
   items      ProcurementItem[]
   vendorBids VendorBid[]
   createdAt  DateTime          @default(now())
   updatedAt  DateTime          @updatedAt
+}
+
+model ProcurementRoundTemplate {
+  id        String   @id @default(cuid())
+  title     String
+  notes     String?
+  items     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model ProcurementItem {

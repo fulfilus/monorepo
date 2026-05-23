@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../common/prisma.service";
 import { WhatsappService } from "../whatsapp/whatsapp.service";
-import { AddVendorBidDto, AwardDto, AwardType, CreateProcurementDto, UpdateBidDto } from "./procurement.dto";
+import { AddVendorBidDto, AwardDto, AwardType, CreateProcurementDto, CreateTemplateDto, UpdateBidDto, UseTemplateDto } from "./procurement.dto";
 
 @Injectable()
 export class ProcurementService {
@@ -275,6 +275,46 @@ export class ProcurementService {
 
     await this.prisma.procurementRound.update({ where: { id: roundId }, data: { status: "AWARDED" } });
     return { type: "SPLIT", quotations };
+  }
+
+  async listTemplates() {
+    return this.prisma.procurementRoundTemplate.findMany({ orderBy: { updatedAt: "desc" } });
+  }
+
+  async createTemplate(dto: CreateTemplateDto) {
+    const items = dto.items.map(i => ({ ...i }));
+    return this.prisma.procurementRoundTemplate.create({
+      data: { title: dto.title, notes: dto.notes, items },
+    });
+  }
+
+  async deleteTemplate(templateId: string) {
+    const t = await this.prisma.procurementRoundTemplate.findUnique({ where: { id: templateId } });
+    if (!t) throw new NotFoundException(`Template ${templateId} not found`);
+    await this.prisma.procurementRoundTemplate.delete({ where: { id: templateId } });
+  }
+
+  async saveRoundAsTemplate(roundId: string) {
+    const round = await this.findOne(roundId);
+    const items = round.items.map(({ itemName, description, quantity, unit, targetPrice, sortOrder }) => ({
+      itemName, description, quantity, unit, targetPrice, sortOrder,
+    }));
+    return this.prisma.procurementRoundTemplate.create({
+      data: { title: round.title, notes: round.notes, items },
+    });
+  }
+
+  async useTemplate(templateId: string, dto: UseTemplateDto) {
+    const template = await this.prisma.procurementRoundTemplate.findUnique({ where: { id: templateId } });
+    if (!template) throw new NotFoundException(`Template ${templateId} not found`);
+    const items = template.items as { itemName: string; description?: string; quantity?: number; unit?: string; targetPrice?: number; sortOrder: number }[];
+    const round = await this.create({
+      title: dto.title ?? template.title,
+      notes: template.notes ?? undefined,
+      items,
+    });
+    await this.prisma.procurementRound.update({ where: { id: round.id }, data: { templateId } });
+    return round;
   }
 
   async getPoQuotation(roundId: string, quotationId: string) {

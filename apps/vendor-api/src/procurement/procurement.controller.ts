@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, NotFoundException, Param, ParseIntPipe, Post, Put, Query, Res, UsePipes, ValidationPipe } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { FastifyReply } from "fastify";
-import { AddVendorBidDto, AwardDto, CreateProcurementDto, UpdateBidDto } from "./procurement.dto";
+import { AddVendorBidDto, AwardDto, CreateProcurementDto, CreateTemplateDto, UpdateBidDto, UseTemplateDto } from "./procurement.dto";
 import { PoPdfService } from "./po-pdf.service";
 import { ProcurementService } from "./procurement.service";
 
@@ -13,6 +13,31 @@ export class ProcurementController {
     private readonly procurementService: ProcurementService,
     private readonly poPdfService: PoPdfService,
   ) {}
+
+  // --- Templates (declared before :id routes to prevent route shadowing) ---
+
+  @Get("templates")
+  listTemplates() {
+    return this.procurementService.listTemplates();
+  }
+
+  @Post("templates")
+  createTemplate(@Body() dto: CreateTemplateDto) {
+    return this.procurementService.createTemplate(dto);
+  }
+
+  @Delete("templates/:templateId")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteTemplate(@Param("templateId") templateId: string) {
+    return this.procurementService.deleteTemplate(templateId);
+  }
+
+  @Post("templates/:templateId/use")
+  useTemplate(@Param("templateId") templateId: string, @Body() dto: UseTemplateDto) {
+    return this.procurementService.useTemplate(templateId, dto);
+  }
+
+  // --- Rounds ---
 
   @Post()
   create(@Body() dto: CreateProcurementDto) {
@@ -30,6 +55,11 @@ export class ProcurementController {
   @Get(":id")
   findOne(@Param("id") id: string) {
     return this.procurementService.findOne(id);
+  }
+
+  @Post(":id/save-as-template")
+  saveAsTemplate(@Param("id") id: string) {
+    return this.procurementService.saveRoundAsTemplate(id);
   }
 
   @Post(":id/vendors")

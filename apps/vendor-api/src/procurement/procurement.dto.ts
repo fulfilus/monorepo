@@ -19,6 +19,17 @@ export class CreateProcurementDto {
   items!: ProcurementItemDto[];
 }
 
+export class CreateTemplateDto {
+  @IsString() title!: string;
+  @IsOptional() @IsString() notes?: string;
+  @IsArray() @ValidateNested({ each: true }) @Type(() => ProcurementItemDto)
+  items!: ProcurementItemDto[];
+}
+
+export class UseTemplateDto {
+  @IsOptional() @IsString() title?: string;
+}
+
 export class AddVendorBidDto {
   @IsString() vendorId!: string;
   @IsOptional() @IsString() quotationId?: string;

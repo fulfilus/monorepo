@@ -19,6 +19,11 @@ import { ProcurementService } from "../services/procurement.service";
         <h2 *ngIf="round">{{ round.title }}</h2>
         <div *ngIf="round" style="margin-left:auto; display:flex; align-items:center; gap:8px;">
           <span class="badge" [ngClass]="round.status.toLowerCase()">{{ round.status }}</span>
+          <button (click)="saveAsTemplate()" [disabled]="savingTemplate"
+                  style="font-size:12px; padding:4px 12px; background:#6d28d9; color:#fff; border:none; border-radius:5px; cursor:pointer;">
+            {{ savingTemplate ? 'Saving...' : 'Save as Template' }}
+          </button>
+          <span *ngIf="savedTemplateMsg" style="font-size:12px; color:#15803d;">{{ savedTemplateMsg }}</span>
         </div>
       </div>
 
@@ -339,6 +344,9 @@ export class ProcurementDetailComponent implements OnInit, OnDestroy {
   ocrResult: { matched: number; total: number } | null = null;
   ocrError = "";
 
+  savingTemplate = false;
+  savedTemplateMsg = "";
+
   comparison: ComparisonResultDto | null = null;
   loadingComparison = false;
 
@@ -509,6 +517,19 @@ export class ProcurementDetailComponent implements OnInit, OnDestroy {
 
   downloadPo(quotationId: string) {
     window.open(this.procurementService.poPdfUrl(this.roundId, quotationId), "_blank");
+  }
+
+  saveAsTemplate() {
+    this.savingTemplate = true;
+    this.savedTemplateMsg = "";
+    this.procurementService.saveAsTemplate(this.roundId).pipe(takeUntil(this.destroy$)).subscribe({
+      next: t => {
+        this.savingTemplate = false;
+        this.savedTemplateMsg = `Saved as "${t.title}"`;
+        setTimeout(() => { this.savedTemplateMsg = ""; }, 4000);
+      },
+      error: () => { this.savingTemplate = false; },
+    });
   }
 
   onOcrFileSelected(event: Event) {

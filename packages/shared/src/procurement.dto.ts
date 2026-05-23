@@ -36,6 +36,24 @@ export interface ProcurementRoundDto {
   updatedAt: string;
 }
 
+export interface ProcurementTemplateItemDto {
+  itemName: string;
+  description?: string | null;
+  quantity?: number | null;
+  unit?: string | null;
+  targetPrice?: number | null;
+  sortOrder: number;
+}
+
+export interface ProcurementRoundTemplateDto {
+  id: string;
+  title: string;
+  notes: string | null;
+  items: ProcurementTemplateItemDto[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ComparisonRowDto {
   itemId: string;
   itemName: string;

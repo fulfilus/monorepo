@@ -1,19 +1,43 @@
 import { CommonModule } from "@angular/common";
 import { Component, OnInit } from "@angular/core";
-import { RouterLink } from "@angular/router";
-import { ProcurementRoundDto } from "@fulfilus/shared";
+import { FormsModule } from "@angular/forms";
+import { Router, RouterLink } from "@angular/router";
+import { ProcurementRoundDto, ProcurementRoundTemplateDto } from "@fulfilus/shared";
 import { ProcurementService } from "../services/procurement.service";
 
 @Component({
   selector: "app-procurement-list",
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, FormsModule],
   template: `
     <div class="admin-page">
       <div class="admin-header">
         <h2>Procurement Rounds</h2>
         <a routerLink="/procurement/new" class="btn-secondary">+ New Round</a>
       </div>
+
+      <!-- Templates Panel -->
+      <section *ngIf="templates.length" style="margin-bottom:24px; padding:14px 16px; background:#faf5ff; border:1px solid #e9d5ff; border-radius:8px;">
+        <h3 style="font-size:13px; font-weight:600; color:#6d28d9; margin:0 0 12px;">Round Templates ({{ templates.length }})</h3>
+        <div style="display:flex; flex-wrap:wrap; gap:10px;">
+          <div *ngFor="let t of templates"
+               style="display:flex; align-items:center; gap:10px; padding:8px 12px; background:#fff; border:1px solid #e9d5ff; border-radius:6px;">
+            <div>
+              <div style="font-size:13px; font-weight:500; color:#374151;">{{ t.title }}</div>
+              <div style="font-size:11px; color:#9ca3af;">{{ templateItemCount(t) }} items</div>
+            </div>
+            <button (click)="useTemplate(t)" [disabled]="usingTemplateId === t.id"
+                    style="font-size:12px; padding:4px 10px; background:#6d28d9; color:#fff; border:none; border-radius:5px; cursor:pointer;">
+              {{ usingTemplateId === t.id ? 'Creating...' : 'Use' }}
+            </button>
+            <button (click)="deleteTemplate(t)"
+                    style="font-size:12px; padding:4px 8px; background:none; border:1px solid #dc2626; color:#dc2626; border-radius:5px; cursor:pointer;">
+              Delete
+            </button>
+          </div>
+        </div>
+        <div *ngIf="templateError" style="margin-top:8px; font-size:12px; color:#dc2626;">{{ templateError }}</div>
+      </section>
 
       <div *ngIf="loading" class="empty-state">Loading...</div>
 
@@ -55,18 +79,34 @@ import { ProcurementService } from "../services/procurement.service";
       </div>
     </div>
   `,
+  styles: [`
+    .badge.open { background:#dbeafe; color:#1d4ed8; }
+    .badge.comparing { background:#fef3c7; color:#92400e; }
+    .badge.awarded { background:#d1fae5; color:#065f46; }
+    .badge.closed { background:#f3f4f6; color:#374151; }
+  `],
 })
 export class ProcurementListComponent implements OnInit {
   rounds: ProcurementRoundDto[] = [];
+  templates: ProcurementRoundTemplateDto[] = [];
   loading = true;
   total = 0;
   page = 1;
   limit = 20;
   Math = Math;
 
-  constructor(private readonly procurementService: ProcurementService) {}
+  usingTemplateId = "";
+  templateError = "";
 
-  ngOnInit() { this.loadPage(1); }
+  constructor(
+    private readonly procurementService: ProcurementService,
+    private readonly router: Router,
+  ) {}
+
+  ngOnInit() {
+    this.loadPage(1);
+    this.loadTemplates();
+  }
 
   loadPage(p: number) {
     this.page = p;
@@ -74,6 +114,33 @@ export class ProcurementListComponent implements OnInit {
     this.procurementService.list(p, this.limit).subscribe({
       next: res => { this.rounds = res.data; this.total = res.total; this.loading = false; },
       error: () => { this.loading = false; },
+    });
+  }
+
+  loadTemplates() {
+    this.procurementService.listTemplates().subscribe({
+      next: t => { this.templates = t; },
+    });
+  }
+
+  templateItemCount(t: ProcurementRoundTemplateDto): number {
+    return Array.isArray(t.items) ? t.items.length : 0;
+  }
+
+  useTemplate(t: ProcurementRoundTemplateDto) {
+    this.usingTemplateId = t.id;
+    this.templateError = "";
+    this.procurementService.useTemplate(t.id).subscribe({
+      next: round => { void this.router.navigate(["/procurement", round.id]); },
+      error: () => { this.templateError = "Failed to create round from template."; this.usingTemplateId = ""; },
+    });
+  }
+
+  deleteTemplate(t: ProcurementRoundTemplateDto) {
+    if (!confirm(`Delete template "${t.title}"?`)) return;
+    this.procurementService.deleteTemplate(t.id).subscribe({
+      next: () => { this.templates = this.templates.filter(x => x.id !== t.id); },
+      error: () => { this.templateError = "Failed to delete template."; },
     });
   }
 }

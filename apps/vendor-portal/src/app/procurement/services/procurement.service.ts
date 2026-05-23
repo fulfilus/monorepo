@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from "@angular/common/http";
 import { Injectable } from "@angular/core";
-import { ComparisonResultDto, ProcurementRoundDto, VendorBidDto } from "@fulfilus/shared";
+import { ComparisonResultDto, ProcurementRoundDto, ProcurementRoundTemplateDto, ProcurementTemplateItemDto, VendorBidDto } from "@fulfilus/shared";
 import { Observable } from "rxjs";
 import { environment } from "../../../environments/environment";
 
@@ -55,5 +55,25 @@ export class ProcurementService {
 
   poPdfUrl(roundId: string, quotationId: string): string {
     return `${this.base}/${roundId}/po-pdf/${quotationId}`;
+  }
+
+  listTemplates(): Observable<ProcurementRoundTemplateDto[]> {
+    return this.http.get<ProcurementRoundTemplateDto[]>(`${this.base}/templates`);
+  }
+
+  createTemplate(title: string, notes: string | null, items: ProcurementTemplateItemDto[]): Observable<ProcurementRoundTemplateDto> {
+    return this.http.post<ProcurementRoundTemplateDto>(`${this.base}/templates`, { title, notes, items });
+  }
+
+  deleteTemplate(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/templates/${id}`);
+  }
+
+  saveAsTemplate(roundId: string): Observable<ProcurementRoundTemplateDto> {
+    return this.http.post<ProcurementRoundTemplateDto>(`${this.base}/${roundId}/save-as-template`, {});
+  }
+
+  useTemplate(templateId: string, title?: string): Observable<ProcurementRoundDto> {
+    return this.http.post<ProcurementRoundDto>(`${this.base}/templates/${templateId}/use`, title ? { title } : {});
   }
 }
