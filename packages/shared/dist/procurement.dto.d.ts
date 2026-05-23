@@ -40,6 +40,18 @@ export interface ProcurementRoundDto {
     createdAt: string;
     updatedAt: string;
 }
+export interface VendorScorecardDto {
+    vendorId: string;
+    shopName: string;
+    totalRounds: number;
+    sentBids: number;
+    receivedBids: number;
+    wonBids: number;
+    responseRate: number | null;
+    winRate: number | null;
+    priceCompetitiveness: number | null;
+    compositeScore: number | null;
+}
 export interface PriceHistoryRoundDto {
     id: string;
     title: string;

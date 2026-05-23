@@ -13,6 +13,7 @@ import { ProcurementService } from "../services/procurement.service";
     <div class="admin-page">
       <div class="admin-header">
         <h2>Procurement Rounds</h2>
+        <a routerLink="/procurement/scorecard" class="btn-link" style="font-size:13px;">Vendor Scorecard</a>
         <a routerLink="/procurement/new" class="btn-secondary">+ New Round</a>
       </div>
 

@@ -14,6 +14,13 @@ export class ProcurementController {
     private readonly poPdfService: PoPdfService,
   ) {}
 
+  // --- Vendor scorecard (declared before :id routes to prevent route shadowing) ---
+
+  @Get("vendor-scorecard")
+  getVendorScorecard() {
+    return this.procurementService.getVendorScorecard();
+  }
+
   // --- Price history (declared before :id routes to prevent route shadowing) ---
 
   @Get("price-history")

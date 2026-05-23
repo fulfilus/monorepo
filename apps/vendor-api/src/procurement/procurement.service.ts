@@ -277,6 +277,106 @@ export class ProcurementService {
     return { type: "SPLIT", quotations };
   }
 
+  async getVendorScorecard() {
+    // Fetch all bids with round items (needed for competitiveness) and vendor info
+    const allBids = await this.prisma.vendorBid.findMany({
+      include: {
+        vendor: { select: { id: true, shopName: true } },
+        round: { include: { items: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    // Group bids by roundId to compute price competitiveness
+    const byRound = new Map<string, typeof allBids>();
+    for (const bid of allBids) {
+      const arr = byRound.get(bid.roundId) ?? [];
+      arr.push(bid);
+      byRound.set(bid.roundId, arr);
+    }
+
+    // Compute per-vendor stats
+    const vendorStats = new Map<string, {
+      vendorId: string;
+      shopName: string;
+      totalBids: number;
+      sentBids: number;
+      receivedBids: number;
+      wonBids: number;
+      competitiveRounds: number;
+      totalRounds: number;
+    }>();
+
+    for (const bid of allBids) {
+      const s = vendorStats.get(bid.vendorId) ?? {
+        vendorId: bid.vendorId,
+        shopName: bid.vendor.shopName,
+        totalBids: 0, sentBids: 0, receivedBids: 0, wonBids: 0,
+        competitiveRounds: 0, totalRounds: 0,
+      };
+      s.totalBids++;
+      if (bid.status === "SENT" || bid.status === "RECEIVED") s.sentBids++;
+      if (bid.status === "RECEIVED") s.receivedBids++;
+      if (bid.quotationId) s.wonBids++;
+      vendorStats.set(bid.vendorId, s);
+    }
+
+    // Compute price competitiveness per vendor per round
+    for (const [, roundBids] of byRound) {
+      if (roundBids.length === 0) continue;
+      const items = roundBids[0].round.items;
+      const vendorsInRound = new Set(roundBids.map(b => b.vendorId));
+
+      // For each vendor in this round, check if they have the lowest price on any item
+      for (const vendorId of vendorsInRound) {
+        const s = vendorStats.get(vendorId);
+        if (!s) continue;
+        s.totalRounds++;
+
+        const vendorBid = roundBids.find(b => b.vendorId === vendorId);
+        if (!vendorBid) continue;
+        const vendorPrices = vendorBid.lineItemPrices as Record<string, number> | null ?? {};
+
+        let isCompetitive = false;
+        for (const item of items) {
+          const myPrice = vendorPrices[item.id];
+          if (myPrice == null) continue;
+          const isLowest = roundBids.every(b => {
+            if (b.vendorId === vendorId || b.status === "DECLINED") return true;
+            const otherPrices = b.lineItemPrices as Record<string, number> | null ?? {};
+            const otherPrice = otherPrices[item.id];
+            return otherPrice == null || myPrice <= otherPrice;
+          });
+          if (isLowest) { isCompetitive = true; break; }
+        }
+        if (isCompetitive) s.competitiveRounds++;
+      }
+    }
+
+    return Array.from(vendorStats.values())
+      .map(s => {
+        const responseRate = s.sentBids > 0 ? Math.round((s.receivedBids / s.sentBids) * 100) : null;
+        const winRate = s.receivedBids > 0 ? Math.round((s.wonBids / s.receivedBids) * 100) : null;
+        const priceCompetitiveness = s.totalRounds > 0 ? Math.round((s.competitiveRounds / s.totalRounds) * 100) : null;
+        const compositeScore = [responseRate, winRate, priceCompetitiveness].every(v => v !== null)
+          ? Math.round((responseRate! * 0.3 + winRate! * 0.4 + priceCompetitiveness! * 0.3))
+          : null;
+        return {
+          vendorId: s.vendorId,
+          shopName: s.shopName,
+          totalRounds: s.totalRounds,
+          sentBids: s.sentBids,
+          receivedBids: s.receivedBids,
+          wonBids: s.wonBids,
+          responseRate,
+          winRate,
+          priceCompetitiveness,
+          compositeScore,
+        };
+      })
+      .sort((a, b) => (b.compositeScore ?? -1) - (a.compositeScore ?? -1));
+  }
+
   async getPriceHistory(itemName: string) {
     const items = await this.prisma.procurementItem.findMany({
       where: { itemName: { contains: itemName, mode: "insensitive" } },

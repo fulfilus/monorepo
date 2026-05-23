@@ -42,7 +42,7 @@ export const routes: Routes = [
     loadComponent: () =>
       import("./quotation/components/quotation-form.component").then(m => m.QuotationFormComponent),
   },
-  // Procurement routes — /new must come before /:id
+  // Procurement routes — static paths before /:id to avoid param clash
   {
     path: "procurement",
     loadComponent: () =>
@@ -52,6 +52,11 @@ export const routes: Routes = [
     path: "procurement/new",
     loadComponent: () =>
       import("./procurement/components/procurement-form.component").then(m => m.ProcurementFormComponent),
+  },
+  {
+    path: "procurement/scorecard",
+    loadComponent: () =>
+      import("./procurement/components/vendor-scorecard.component").then(m => m.VendorScorecardComponent),
   },
   {
     path: "procurement/:id",
