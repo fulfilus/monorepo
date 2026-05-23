@@ -101,5 +101,10 @@ export const routes: Routes = [
     loadComponent: () =>
       import("./inbound/components/inbound-inbox.component").then(m => m.InboundInboxComponent),
   },
+  {
+    path: "contracts",
+    loadComponent: () =>
+      import("./contracts/components/contracts-list.component").then(m => m.ContractsListComponent),
+  },
   { path: "**", redirectTo: "" },
 ];

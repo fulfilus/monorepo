@@ -88,6 +88,7 @@ model Vendor {
   quotations     Quotation[]
   contactLogs    ContactLog[]
   vendorBids     VendorBid[]
+  rateContracts  AgreedRateContract[]
 
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -433,6 +434,33 @@ model QuotationTemplate {
   lineItems Json
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
+}
+
+enum ContractStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+model AgreedRateContract {
+  id           String         @id @default(cuid())
+  vendorId     String
+  itemName     String
+  unitPrice    Float
+  unit         String?
+  minQty       Float?
+  tolerancePct Float          @default(0)
+  validFrom    DateTime       @default(now())
+  validUntil   DateTime?
+  notes        String?
+  status       ContractStatus @default(ACTIVE)
+  vendor       Vendor         @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([vendorId])
+  @@index([itemName])
+  @@index([status])
 }
 
 model AuditLog {

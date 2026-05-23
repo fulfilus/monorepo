@@ -6,4 +6,5 @@ export * from "./dashboard.dto";
 export * from "./procurement.dto";
 export * from "./sourcing.dto";
 export * from "./customer.dto";
+export * from "./contracts.dto";
 //# sourceMappingURL=index.d.ts.map

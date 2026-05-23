@@ -22,3 +22,4 @@ __exportStar(require("./dashboard.dto"), exports);
 __exportStar(require("./procurement.dto"), exports);
 __exportStar(require("./sourcing.dto"), exports);
 __exportStar(require("./customer.dto"), exports);
+__exportStar(require("./contracts.dto"), exports);

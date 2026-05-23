@@ -13,9 +13,10 @@ import { ProcurementModule } from "./procurement/procurement.module";
 import { SourcingModule } from "./sourcing/sourcing.module";
 import { CustomerModule } from "./customer/customer.module";
 import { InboundModule } from "./inbound/inbound.module";
+import { ContractsModule } from "./contracts/contracts.module";
 
 @Module({
-  imports: [ScheduleModule.forRoot(), PrismaModule, VendorModule, EnrichmentModule, QuotationModule, WhatsappModule, DashboardModule, DocumentModule, ContactLogModule, ProcurementModule, SourcingModule, CustomerModule, InboundModule],
+  imports: [ScheduleModule.forRoot(), PrismaModule, VendorModule, EnrichmentModule, QuotationModule, WhatsappModule, DashboardModule, DocumentModule, ContactLogModule, ProcurementModule, SourcingModule, CustomerModule, InboundModule, ContractsModule],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
