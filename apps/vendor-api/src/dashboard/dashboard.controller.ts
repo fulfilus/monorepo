@@ -11,4 +11,9 @@ export class DashboardController {
   getSummary() {
     return this.dashboardService.getSummary();
   }
+
+  @Get("spend")
+  getSpend() {
+    return this.dashboardService.getSpendAnalytics();
+  }
 }

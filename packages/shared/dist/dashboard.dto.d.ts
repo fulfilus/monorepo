@@ -1,3 +1,24 @@
+export interface SpendByMonthDto {
+    month: string;
+    total: number;
+}
+export interface SpendByVendorDto {
+    vendorId: string;
+    shopName: string;
+    total: number;
+    pct: number;
+}
+export interface SpendByCategoryDto {
+    category: string;
+    total: number;
+    pct: number;
+}
+export interface SpendAnalyticsDto {
+    totalSpend: number;
+    byMonth: SpendByMonthDto[];
+    byVendor: SpendByVendorDto[];
+    byCategory: SpendByCategoryDto[];
+}
 export interface DashboardResponseDto {
     totalVendors: number;
     contactedCount: number;
