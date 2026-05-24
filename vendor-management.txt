@@ -1,0 +1,22 @@
+vendor details:
+
+shop name
+shop details
+location
+shop categories
+whatsapp number
+contacted? yes or no
+notes
+gst number
+categories he sells -> multi select
+shop photo
+payment details -> qr code or number 
+bank account details other payments
+
+voice to text convertion for the form building with the above data
+
+
+what sapp integration-> whatsapp onboarding -> 
+
+
+can this form inside whatsapp forms

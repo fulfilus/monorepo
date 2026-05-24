@@ -6,3 +6,10 @@ dist/
 !.env.example
 *.log
 .DS_Store
+
+# Editor swap files
+*.swp
+*.swo
+
+# Local Claude Code personal config
+.claude/claude.local.md
