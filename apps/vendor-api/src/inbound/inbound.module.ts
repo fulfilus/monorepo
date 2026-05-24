@@ -6,7 +6,7 @@ import { SourcingModule } from "../sourcing/sourcing.module";
 import { WhatsappModule } from "../whatsapp/whatsapp.module";
 
 @Module({
-  imports: [SourcingModule, forwardRef(() => WhatsappModule)],
+  imports: [forwardRef(() => SourcingModule), forwardRef(() => WhatsappModule)],
   controllers: [InboundController],
   providers: [InboundService, ValidationService],
   exports: [InboundService],

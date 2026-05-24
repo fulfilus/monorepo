@@ -268,6 +268,27 @@ describe("SourcingController (e2e)", () => {
       expect(res.statusCode).toBe(200);
       expect(json(res.payload)).toMatchObject({ "M8 Bolts": expect.any(Array) });
     });
+
+    it("includes AGREED_RATE suggestions when contracts exist", async () => {
+      mockSourcingService.lookup.mockResolvedValue({
+        "M8 Bolts": [
+          { vendorId: "v1", vendorName: "Contract Vendor", price: 10.0, unit: "pcs", source: "AGREED_RATE", date: "2024-01-01T00:00:00.000Z" },
+          { vendorId: "v2", vendorName: "Other Vendor", price: 12.5, unit: "pcs", source: "PRICE_LIST", date: "2024-02-01T00:00:00.000Z" },
+        ],
+      });
+
+      const res = await fastify().inject({
+        method: "POST",
+        url: "/sourcing/lookup",
+        headers: { "content-type": "application/json" },
+        payload: JSON.stringify({ itemNames: ["M8 Bolts"] }),
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = json(res.payload) as { "M8 Bolts": { source: string }[] };
+      expect(body["M8 Bolts"].some(s => s.source === "AGREED_RATE")).toBe(true);
+    });
+
   });
 
   // --- GET /sourcing/:id/pdf/:type ---

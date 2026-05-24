@@ -17,6 +17,7 @@ export class ProcurementService {
       data: {
         title: dto.title,
         notes: dto.notes,
+        ...(dto.deadline ? { deadline: new Date(dto.deadline) } : {}),
         items: {
           create: dto.items.map((item, i) => ({
             itemName: item.itemName,
@@ -90,6 +91,21 @@ export class ProcurementService {
         ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
         ...(dto.quotationId !== undefined ? { quotationId: dto.quotationId } : {}),
       },
+      include: { vendor: { select: { id: true, shopName: true } } },
+    });
+  }
+
+  async updateBidDelivery(roundId: string, bidId: string, dto: { expectedDeliveryAt?: string; deliveredAt?: string; receivedQty?: number; discrepancyNotes?: string }) {
+    const bid = await this.prisma.vendorBid.findFirst({ where: { id: bidId, roundId } });
+    if (!bid) throw new NotFoundException("Bid not found");
+    const data: Record<string, unknown> = {};
+    if (dto.expectedDeliveryAt !== undefined) data["expectedDeliveryAt"] = new Date(dto.expectedDeliveryAt);
+    if (dto.deliveredAt !== undefined) data["deliveredAt"] = new Date(dto.deliveredAt);
+    if (dto.receivedQty !== undefined) data["receivedQty"] = dto.receivedQty;
+    if (dto.discrepancyNotes !== undefined) data["discrepancyNotes"] = dto.discrepancyNotes;
+    return this.prisma.vendorBid.update({
+      where: { id: bidId },
+      data: data as never,
       include: { vendor: { select: { id: true, shopName: true } } },
     });
   }
@@ -502,7 +518,7 @@ export class ProcurementService {
     return { found: false, barcode, itemName: null, description: null, unit: null, hsnCode: null, gstRate: null, targetPrice: null };
   }
 
-  async getPoQuotation(roundId: string, quotationId: string) {
+  async getPoQuotation(_roundId: string, quotationId: string) {
     return this.prisma.quotation.findFirst({
       where: { id: quotationId, type: "PO_QUOTE" },
       include: {

@@ -15,15 +15,16 @@ import { ProcurementService } from "../services/procurement.service";
   template: `
     <div class="admin-page">
       <div class="admin-header">
-        <a routerLink="/procurement" class="btn-link">← Procurement</a>
-        <h2 *ngIf="round">{{ round.title }}</h2>
-        <div *ngIf="round" style="margin-left:auto; display:flex; align-items:center; gap:8px;">
+        <div>
+          <a routerLink="/procurement" class="back-link">Procurement</a>
+          <h2 *ngIf="round">{{ round.title }}</h2>
+        </div>
+        <div *ngIf="round" class="admin-header-actions">
           <span class="badge" [ngClass]="round.status.toLowerCase()">{{ round.status }}</span>
-          <button (click)="saveAsTemplate()" [disabled]="savingTemplate"
-                  style="font-size:12px; padding:4px 12px; background:#6d28d9; color:#fff; border:none; border-radius:5px; cursor:pointer;">
+          <button (click)="saveAsTemplate()" [disabled]="savingTemplate" class="btn-secondary">
             {{ savingTemplate ? 'Saving...' : 'Save as Template' }}
           </button>
-          <span *ngIf="savedTemplateMsg" style="font-size:12px; color:#15803d;">{{ savedTemplateMsg }}</span>
+          <span *ngIf="savedTemplateMsg" class="alert alert-success" style="padding:4px 10px; margin:0;">{{ savedTemplateMsg }}</span>
         </div>
       </div>
 
@@ -31,69 +32,63 @@ import { ProcurementService } from "../services/procurement.service";
 
       <ng-container *ngIf="round && !loading">
 
-        <!-- Notes -->
-        <div *ngIf="round.notes" style="padding:10px 14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; margin-bottom:16px; font-size:13px; color:#4b5563;">
-          {{ round.notes }}
-        </div>
+        <div *ngIf="round.notes" class="alert alert-info" style="margin-bottom:16px;">{{ round.notes }}</div>
 
-        <!-- Items Summary -->
-        <section style="margin-bottom:20px;">
-          <h3 style="font-size:14px; font-weight:600; margin-bottom:8px;">Items ({{ round.items.length }})</h3>
-          <div style="overflow-x:auto;">
-            <table style="width:100%; border-collapse:collapse; font-size:13px;">
+        <div class="panel" style="margin-bottom:20px;">
+          <div class="panel-header">
+            <h3>Items ({{ round.items.length }})</h3>
+          </div>
+          <div class="table-wrapper" style="border-radius:0 0 var(--r-xl) var(--r-xl);">
+            <table>
               <thead>
-                <tr style="background:#f3f4f6;">
-                  <th style="padding:6px 10px; text-align:left;">#</th>
-                  <th style="padding:6px 10px; text-align:left;">Item</th>
-                  <th style="padding:6px 10px; text-align:right;">Qty</th>
-                  <th style="padding:6px 10px; text-align:left;">Unit</th>
-                  <th style="padding:6px 10px; text-align:right;">Target Price</th>
+                <tr>
+                  <th>#</th>
+                  <th>Item</th>
+                  <th style="text-align:right;">Qty</th>
+                  <th>Unit</th>
+                  <th style="text-align:right;">Target Price</th>
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let item of round.items; let i = index" style="border-bottom:1px solid #f3f4f6;">
-                  <td style="padding:6px 10px; color:#9ca3af;">{{ i + 1 }}</td>
-                  <td style="padding:6px 10px; font-weight:500;">{{ item.itemName }}<span *ngIf="item.description" style="font-size:11px; color:#9ca3af; margin-left:6px;">{{ item.description }}</span></td>
-                  <td style="padding:6px 10px; text-align:right; color:#374151;">{{ item.quantity ?? '—' }}</td>
-                  <td style="padding:6px 10px; color:#6b7280;">{{ item.unit ?? '—' }}</td>
-                  <td style="padding:6px 10px; text-align:right; color:#374151;">{{ item.targetPrice != null ? ('₹' + item.targetPrice) : '—' }}</td>
+                <tr *ngFor="let item of round.items; let i = index">
+                  <td style="color:var(--text-faint);">{{ i + 1 }}</td>
+                  <td style="font-weight:600;">{{ item.itemName }}<span *ngIf="item.description" style="font-size:11px; color:var(--text-faint); margin-left:6px;">{{ item.description }}</span></td>
+                  <td style="text-align:right;">{{ item.quantity ?? '—' }}</td>
+                  <td style="color:var(--text-muted);">{{ item.unit ?? '—' }}</td>
+                  <td style="text-align:right; color:var(--text-muted);">{{ item.targetPrice != null ? ('₹' + item.targetPrice) : '—' }}</td>
                 </tr>
               </tbody>
             </table>
           </div>
-        </section>
+        </div>
 
-        <!-- Add Vendor -->
-        <section *ngIf="round.status === 'OPEN'" style="margin-bottom:20px; padding:14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;">
-          <h3 style="font-size:14px; font-weight:600; margin-bottom:10px;">Add Vendor to Round</h3>
-          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-            <select [(ngModel)]="selectedVendorId" style="flex:1; min-width:200px; padding:7px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px;">
+        <div *ngIf="round.status === 'OPEN'" class="panel" style="margin-bottom:20px;">
+          <div class="panel-header"><h3>Add Vendor to Round</h3></div>
+          <div class="panel-body" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <select [(ngModel)]="selectedVendorId" class="inline-input" style="flex:1; min-width:200px;">
               <option value="">Select vendor...</option>
               <option *ngFor="let v of vendorList" [value]="v.id">{{ v.shopName }}</option>
             </select>
-            <button (click)="addVendor()" [disabled]="!selectedVendorId || addingVendor" style="padding:7px 16px; background:#2563eb; color:#fff; border:none; border-radius:6px; font-size:13px; cursor:pointer;">
+            <button (click)="addVendor()" [disabled]="!selectedVendorId || addingVendor" class="btn-primary">
               {{ addingVendor ? 'Adding...' : 'Add Vendor' }}
             </button>
+            <div *ngIf="addVendorError" class="alert alert-error" style="margin:0; width:100%;">{{ addVendorError }}</div>
           </div>
-          <div *ngIf="addVendorError" class="error" style="margin-top:6px; font-size:12px;">{{ addVendorError }}</div>
-        </section>
+        </div>
 
-        <!-- Vendor Bids -->
         <section style="margin-bottom:24px;">
           <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px; flex-wrap:wrap;">
-            <h3 style="font-size:14px; font-weight:600; margin:0;">Vendor Bids ({{ round.vendorBids.length }})</h3>
+            <h3 style="font-size:14px; font-weight:800; margin:0; color:var(--primary);">Vendor Bids ({{ round.vendorBids.length }})</h3>
             <button *ngIf="round.status === 'OPEN' && round.vendorBids.length > 0"
-                    (click)="blastRfq()" [disabled]="blasting"
-                    style="padding:5px 14px; background:#16a34a; color:#fff; border:none; border-radius:6px; font-size:12px; cursor:pointer; font-weight:500;">
+                    (click)="blastRfq()" [disabled]="blasting" class="btn-primary">
               {{ blasting ? 'Sending...' : 'Send RFQ via WhatsApp' }}
             </button>
           </div>
-          <div *ngIf="blastResult" style="padding:8px 12px; border-radius:6px; font-size:12px; margin-bottom:10px;"
-               [style.background]="blastResult.failed.length ? '#fef2f2' : '#f0fdf4'"
-               [style.border]="blastResult.failed.length ? '1px solid #fecaca' : '1px solid #bbf7d0'">
+          <div *ngIf="blastResult" class="alert" style="margin-bottom:10px;"
+               [class.alert-success]="!blastResult.failed.length" [class.alert-error]="blastResult.failed.length > 0">
             Sent: {{ blastResult.sent.length }} &nbsp;|&nbsp;
             Skipped: {{ blastResult.skipped.length }} &nbsp;|&nbsp;
-            <span [style.color]="blastResult.failed.length ? '#dc2626' : 'inherit'">Failed: {{ blastResult.failed.length }}</span>
+            Failed: {{ blastResult.failed.length }}
           </div>
 
           <div *ngIf="round.vendorBids.length === 0" class="empty-state" style="padding:16px;">
@@ -101,46 +96,32 @@ import { ProcurementService } from "../services/procurement.service";
           </div>
 
           <div *ngFor="let bid of round.vendorBids" style="margin-bottom:8px;">
-            <div style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:#fff; border:1px solid #e5e7eb; border-radius:8px; flex-wrap:wrap;">
-              <span style="font-weight:500; font-size:13px; flex:1; min-width:140px;">{{ bid.vendor.shopName }}</span>
-              <span class="badge" [ngClass]="bid.status.toLowerCase()" style="font-size:11px;">{{ bid.status }}</span>
-              <span style="font-size:12px; color:#6b7280;">
-                {{ priceCount(bid) }}/{{ round.items.length }} prices entered
-              </span>
+            <div class="bid-card" [class.active]="activeBidId === bid.id">
+              <span class="bid-vendor-name">{{ bid.vendor.shopName }}</span>
+              <span class="badge" [ngClass]="bid.status.toLowerCase()">{{ bid.status }}</span>
+              <span style="font-size:12px; color:var(--text-muted);">{{ priceCount(bid) }}/{{ round.items.length }} prices</span>
               <div style="display:flex; gap:6px; margin-left:auto;">
-                <button *ngIf="round.status === 'OPEN'" (click)="openPriceEntry(bid)"
-                        style="font-size:12px; padding:4px 10px; background:#2563eb; color:#fff; border:none; border-radius:5px; cursor:pointer;">
+                <button *ngIf="round.status === 'OPEN'" (click)="openPriceEntry(bid)" class="btn-primary" style="font-size:12px; padding:5px 12px;">
                   {{ activeBidId === bid.id ? 'Close' : 'Enter Prices' }}
                 </button>
-                <button *ngIf="round.status === 'OPEN'" (click)="removeVendor(bid)"
-                        style="font-size:12px; padding:4px 10px; background:none; border:1px solid #dc2626; color:#dc2626; border-radius:5px; cursor:pointer;">
-                  Remove
-                </button>
+                <button *ngIf="round.status === 'OPEN'" (click)="removeVendor(bid)" class="btn-danger" style="font-size:12px; padding:5px 10px;">Remove</button>
               </div>
             </div>
 
-            <!-- Inline Price Entry Panel -->
-            <div *ngIf="activeBidId === bid.id"
-                 style="margin-top:2px; padding:14px; background:#fafbff; border:1px solid #bfdbfe; border-radius:0 0 8px 8px; border-top:none;">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
-                <strong style="font-size:13px;">Prices from {{ bid.vendor.shopName }}</strong>
+            <div *ngIf="activeBidId === bid.id" class="price-entry-panel">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+                <strong>Prices from {{ bid.vendor.shopName }}</strong>
                 <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                  <!-- OCR import -->
-                  <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:normal;">
+                  <label style="cursor:pointer;">
                     <input type="file" accept="image/*,.pdf" style="display:none;" (change)="onOcrFileSelected($event)" [disabled]="ocrLoading" />
-                    <button type="button"
-                            style="font-size:12px; padding:4px 10px; background:#7c3aed; color:#fff; border:none; border-radius:5px; cursor:pointer;"
-                            [disabled]="ocrLoading"
-                            (click)="triggerPrecedingSibling($event)">
+                    <button type="button" class="btn-secondary" style="font-size:12px; padding:5px 12px;" [disabled]="ocrLoading" (click)="triggerPrecedingSibling($event)">
                       {{ ocrLoading ? 'Extracting...' : 'Import Price List' }}
                     </button>
                   </label>
-                  <span *ngIf="ocrResult" style="font-size:12px; color:#15803d;">
-                    {{ ocrResult.matched }}/{{ ocrResult.total }} items matched
-                  </span>
-                  <span *ngIf="ocrError" style="font-size:12px; color:#dc2626;">{{ ocrError }}</span>
-                  <span style="font-size:12px; color:#6b7280;">Status:</span>
-                  <select [(ngModel)]="entryStatus" style="font-size:12px; padding:3px 6px; border:1px solid #d1d5db; border-radius:4px;">
+                  <span *ngIf="ocrResult" style="font-size:12px; color:var(--green);">{{ ocrResult.matched }}/{{ ocrResult.total }} matched</span>
+                  <span *ngIf="ocrError" style="font-size:12px; color:var(--red);">{{ ocrError }}</span>
+                  <span style="font-size:12px; color:var(--text-muted);">Status:</span>
+                  <select [(ngModel)]="entryStatus" class="inline-input" style="width:auto;">
                     <option value="PENDING">PENDING</option>
                     <option value="SENT">SENT</option>
                     <option value="RECEIVED">RECEIVED</option>
@@ -149,177 +130,190 @@ import { ProcurementService } from "../services/procurement.service";
                 </div>
               </div>
 
-              <table style="width:100%; border-collapse:collapse; font-size:13px; margin-bottom:10px;">
-                <thead>
-                  <tr style="background:#eff6ff;">
-                    <th style="padding:6px 8px; text-align:left;">Item</th>
-                    <th style="padding:6px 8px; text-align:right; width:80px;">Qty</th>
-                    <th style="padding:6px 8px; text-align:left; width:60px;">Unit</th>
-                    <th style="padding:6px 8px; text-align:right; width:130px;">Target (₹)</th>
-                    <th style="padding:6px 8px; text-align:right; width:130px;">Vendor Price (₹) *</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let item of round.items" style="border-bottom:1px solid #e5e7eb;">
-                    <td style="padding:6px 8px; font-weight:500;">{{ item.itemName }}</td>
-                    <td style="padding:6px 8px; text-align:right; color:#6b7280;">{{ item.quantity ?? '—' }}</td>
-                    <td style="padding:6px 8px; color:#6b7280;">{{ item.unit ?? '' }}</td>
-                    <td style="padding:6px 8px; text-align:right; color:#9ca3af; font-size:12px;">{{ item.targetPrice != null ? ('₹' + item.targetPrice) : '—' }}</td>
-                    <td style="padding:4px 8px;">
-                      <input type="number" min="0" step="0.01"
-                             [(ngModel)]="priceEntry[item.id]"
-                             style="width:110px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; text-align:right; font-size:13px;"
-                             placeholder="0.00" />
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <div class="table-wrapper" style="margin-bottom:12px;">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th style="text-align:right; width:80px;">Qty</th>
+                      <th style="width:60px;">Unit</th>
+                      <th style="text-align:right; width:130px;">Target (₹)</th>
+                      <th style="text-align:right; width:150px;">Vendor Price (₹) *</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let item of round.items">
+                      <td style="font-weight:600;">{{ item.itemName }}</td>
+                      <td style="text-align:right; color:var(--text-muted);">{{ item.quantity ?? '—' }}</td>
+                      <td style="color:var(--text-muted);">{{ item.unit ?? '' }}</td>
+                      <td style="text-align:right; color:var(--text-faint);">{{ item.targetPrice != null ? ('₹' + item.targetPrice) : '—' }}</td>
+                      <td>
+                        <input type="number" min="0" step="0.01"
+                               [(ngModel)]="priceEntry[item.id]"
+                               class="inline-input" style="text-align:right; width:120px;"
+                               placeholder="0.00" />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
               <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                <label style="font-size:12px; color:#6b7280; font-weight:normal; display:flex; align-items:center; gap:6px; flex:1; min-width:200px;">
-                  Notes
-                  <input [(ngModel)]="entryNotes" style="flex:1; padding:4px 8px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;" placeholder="Optional notes..." />
-                </label>
-                <button (click)="savePrices(bid)" [disabled]="savingPrices" style="padding:6px 16px; background:#2563eb; color:#fff; border:none; border-radius:6px; font-size:13px; cursor:pointer;">
+                <input [(ngModel)]="entryNotes" class="inline-input" placeholder="Notes (optional)" style="flex:1; min-width:200px;" />
+                <button (click)="savePrices(bid)" [disabled]="savingPrices" class="btn-primary">
                   {{ savingPrices ? 'Saving...' : 'Save Prices' }}
                 </button>
               </div>
 
-              <div *ngIf="priceEntryError" class="error" style="margin-top:6px; font-size:12px;">{{ priceEntryError }}</div>
-              <div *ngIf="priceEntrySuccess" class="success" style="margin-top:6px; font-size:12px;">{{ priceEntrySuccess }}</div>
+              <div *ngIf="priceEntryError" class="alert alert-error" style="margin-top:8px;">{{ priceEntryError }}</div>
+              <div *ngIf="priceEntrySuccess" class="alert alert-success" style="margin-top:8px;">{{ priceEntrySuccess }}</div>
             </div>
           </div>
         </section>
 
-        <!-- Comparison Matrix -->
-        <section *ngIf="round.vendorBids.length > 0" style="margin-bottom:24px;">
-          <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
-            <h3 style="font-size:14px; font-weight:600; margin:0;">Price Comparison</h3>
-            <button (click)="loadComparison()" [disabled]="loadingComparison"
-                    style="font-size:12px; padding:4px 12px; background:#7c3aed; color:#fff; border:none; border-radius:5px; cursor:pointer;">
+        <div *ngIf="round.vendorBids.length > 0" class="panel" style="margin-bottom:24px;">
+          <div class="panel-header">
+            <h3>Price Comparison</h3>
+            <button (click)="loadComparison()" [disabled]="loadingComparison" class="btn-secondary" style="font-size:12px; padding:5px 12px;">
               {{ loadingComparison ? 'Loading...' : (comparison ? 'Refresh' : 'Load Comparison') }}
             </button>
           </div>
-
-          <div *ngIf="comparison" style="overflow-x:auto;">
-            <table style="width:100%; border-collapse:collapse; font-size:13px;">
+          <div *ngIf="comparison" class="table-wrapper" style="border-radius:0 0 var(--r-xl) var(--r-xl);">
+            <table>
               <thead>
-                <tr style="background:#f3f4f6;">
-                  <th style="padding:8px 10px; text-align:left; min-width:150px;">Item</th>
-                  <th style="padding:8px 10px; text-align:right; min-width:80px; color:#9ca3af;">Target</th>
+                <tr>
+                  <th style="min-width:150px;">Item</th>
+                  <th style="text-align:right; min-width:80px; color:var(--text-faint);">Target</th>
                   <th *ngFor="let v of comparison.vendors"
-                      style="padding:8px 10px; text-align:right; min-width:110px;"
-                      [style.background]="awardType === 'SINGLE' && awardVendorId === v.vendorId ? '#f0fdf4' : ''">
-                    <div style="font-weight:600;">{{ v.shopName }}</div>
-                    <div style="font-size:11px; color:#6b7280;">{{ v.coverage }}% covered</div>
+                      style="text-align:right; min-width:110px;"
+                      [style.background]="awardType === 'SINGLE' && awardVendorId === v.vendorId ? 'var(--green-bg)' : ''">
+                    <div>{{ v.shopName }}</div>
+                    <div style="font-size:10px; color:var(--text-faint); font-weight:500;">{{ v.coverage }}% covered</div>
                   </th>
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let row of comparison.items" style="border-bottom:1px solid #f3f4f6;">
-                  <td style="padding:8px 10px; font-weight:500;">{{ row.itemName }}</td>
-                  <td style="padding:8px 10px; text-align:right; color:#9ca3af; font-size:12px;">
-                    {{ row.targetPrice != null ? ('₹' + row.targetPrice) : '—' }}
-                  </td>
-                  <td *ngFor="let v of comparison.vendors" style="padding:8px 10px; text-align:right;"
-                      [style.background]="row.lowestVendorId === v.vendorId && row.lowestPrice != null ? '#f0fdf4' : ''"
-                      [style.color]="row.lowestVendorId === v.vendorId && row.lowestPrice != null ? '#16a34a' : '#374151'"
-                      [style.fontWeight]="row.lowestVendorId === v.vendorId && row.lowestPrice != null ? '600' : 'normal'">
+                <tr *ngFor="let row of comparison.items">
+                  <td style="font-weight:600;">{{ row.itemName }}</td>
+                  <td style="text-align:right; color:var(--text-faint);">{{ row.targetPrice != null ? ('₹' + row.targetPrice) : '—' }}</td>
+                  <td *ngFor="let v of comparison.vendors" style="text-align:right;"
+                      [style.background]="row.lowestVendorId === v.vendorId && row.lowestPrice != null ? 'var(--green-bg)' : ''"
+                      [style.color]="row.lowestVendorId === v.vendorId && row.lowestPrice != null ? 'var(--green)' : 'var(--text)'"
+                      [style.fontWeight]="row.lowestVendorId === v.vendorId && row.lowestPrice != null ? '700' : 'normal'">
                     <span *ngIf="row.prices[v.vendorId] != null">
                       ₹{{ row.prices[v.vendorId] }}
                       <span *ngIf="row.lowestVendorId === v.vendorId && row.lowestPrice != null" title="Lowest price" style="font-size:11px;">&#9660;</span>
                     </span>
-                    <span *ngIf="row.prices[v.vendorId] == null" style="color:#d1d5db;">—</span>
+                    <span *ngIf="row.prices[v.vendorId] == null" style="color:var(--text-faint);">—</span>
                   </td>
                 </tr>
               </tbody>
               <tfoot>
-                <tr style="background:#f9fafb; font-weight:600;">
-                  <td style="padding:8px 10px;">Total</td>
-                  <td style="padding:8px 10px;"></td>
-                  <td *ngFor="let v of comparison.vendors" style="padding:8px 10px; text-align:right;">
+                <tr style="background:var(--surface-raised); font-weight:700;">
+                  <td>Total</td>
+                  <td></td>
+                  <td *ngFor="let v of comparison.vendors" style="text-align:right;">
                     {{ v.total > 0 ? ('₹' + v.total.toFixed(2)) : '—' }}
                   </td>
                 </tr>
               </tfoot>
             </table>
-
-            <div *ngIf="comparison.suggestedSplit && hasSuggestedSplit()" style="margin-top:10px; padding:10px 14px; background:#fefce8; border:1px solid #fde68a; border-radius:6px; font-size:12px;">
+            <div *ngIf="comparison.suggestedSplit && hasSuggestedSplit()" class="alert alert-warn" style="margin:12px; border-radius:var(--r-md);">
               <strong>Suggested Split:</strong>
               <span *ngFor="let v of comparison.vendors; let last = last">
                 {{ v.shopName }} gets {{ itemsForVendor(v.vendorId).join(', ') }}<span *ngIf="!last">; </span>
               </span>
             </div>
           </div>
-        </section>
+        </div>
 
-        <!-- Award Section -->
-        <section *ngIf="round.status === 'OPEN' || round.status === 'COMPARING'" style="padding:16px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; margin-bottom:24px;">
-          <h3 style="font-size:14px; font-weight:600; margin-bottom:12px;">Award Round</h3>
+        <div *ngIf="round.status === 'OPEN' || round.status === 'COMPARING'" class="panel" style="margin-bottom:24px;">
+          <div class="panel-header"><h3>Award Round</h3></div>
+          <div class="panel-body">
+            <div style="display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; margin-bottom:12px;">
+              <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; font-weight:500;">
+                <input type="radio" [(ngModel)]="awardType" value="SPLIT" />
+                Split Award <span style="font-size:11px; color:var(--text-muted);">(cheapest per item)</span>
+              </label>
+              <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; font-weight:500;">
+                <input type="radio" [(ngModel)]="awardType" value="SINGLE" />
+                Single Vendor
+              </label>
+            </div>
 
-          <div style="display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap;">
-            <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; font-weight:normal;">
-              <input type="radio" [(ngModel)]="awardType" value="SPLIT" />
-              Split Award <span style="font-size:11px; color:#6b7280;">(cheapest vendor per item)</span>
-            </label>
-            <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; font-weight:normal;">
-              <input type="radio" [(ngModel)]="awardType" value="SINGLE" />
-              Single Vendor
-            </label>
-          </div>
+            <div *ngIf="awardType === 'SINGLE'" style="margin-bottom:14px;">
+              <select [(ngModel)]="awardVendorId" class="inline-input" style="min-width:220px;">
+                <option value="">Select vendor to award...</option>
+                <option *ngFor="let bid of round.vendorBids" [value]="bid.vendorId">{{ bid.vendor.shopName }}</option>
+              </select>
+            </div>
 
-          <div *ngIf="awardType === 'SINGLE'" style="margin-top:10px;">
-            <select [(ngModel)]="awardVendorId" style="padding:7px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; min-width:220px;">
-              <option value="">Select vendor to award...</option>
-              <option *ngFor="let bid of round.vendorBids" [value]="bid.vendorId">{{ bid.vendor.shopName }}</option>
-            </select>
-          </div>
-
-          <div style="margin-top:14px; display:flex; gap:8px; align-items:center;">
-            <button (click)="award()" [disabled]="awarding || (awardType === 'SINGLE' && !awardVendorId)"
-                    style="padding:8px 20px; background:#16a34a; color:#fff; border:none; border-radius:6px; font-size:13px; cursor:pointer; font-weight:500;">
+            <button (click)="award()" [disabled]="awarding || (awardType === 'SINGLE' && !awardVendorId)" class="btn-primary">
               {{ awarding ? 'Awarding...' : 'Award & Generate PO Quotes' }}
             </button>
-          </div>
 
-          <div *ngIf="awardError" class="error" style="margin-top:8px;">{{ awardError }}</div>
+            <div *ngIf="awardError" class="alert alert-error" style="margin-top:10px;">{{ awardError }}</div>
 
-          <!-- Award result -->
-          <div *ngIf="awardResult" style="margin-top:12px; padding:12px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px;">
-            <div style="font-size:13px; font-weight:600; color:#15803d; margin-bottom:8px;">
-              Round awarded. {{ awardResult.quotations.length }} PO quote(s) generated.
+            <div *ngIf="awardResult" class="alert alert-success" style="margin-top:12px;">
+              <strong>Round awarded.</strong> {{ awardResult.quotations.length }} PO quote(s) generated.
+              <div *ngFor="let q of awardResult.quotations" style="margin-top:6px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <a [routerLink]="['/quotations', q.id]" class="btn-link">{{ q.referenceNumber }}</a>
+                <span>{{ vendorName(q.vendorId) }} — ₹{{ q.totalAmount.toFixed(2) }}</span>
+                <button (click)="downloadPo(q.id)" class="btn-secondary" style="font-size:11px; padding:4px 10px;">Download PO</button>
+              </div>
             </div>
-            <div *ngFor="let q of awardResult.quotations" style="font-size:12px; color:#374151; margin-bottom:6px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-              <a [routerLink]="['/quotations', q.id]" style="color:#2563eb;">{{ q.referenceNumber }}</a>
-              <span>— {{ vendorName(q.vendorId) }} — ₹{{ q.totalAmount.toFixed(2) }}</span>
-              <button (click)="downloadPo(q.id)"
-                      style="font-size:11px; padding:3px 10px; background:#1d4ed8; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:500;">
-                Download PO
+          </div>
+        </div>
+
+        <div *ngIf="round.status === 'AWARDED'" class="panel" style="margin-bottom:24px;">
+          <div class="panel-header"><h3>Delivery Confirmation</h3></div>
+          <div *ngFor="let bid of awardedBids()" style="padding:14px 16px; border-bottom:1px solid var(--border);">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
+              <strong style="font-size:14px;">{{ bid.vendor.shopName }}</strong>
+              <span class="badge" [ngClass]="deliveryStatus(bid)">{{ deliveryStatus(bid) }}</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px; margin-bottom:10px;">
+              <div>
+                <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">Expected Delivery</div>
+                <input type="date" class="inline-input"
+                       [value]="deliveryDraft[bid.id]?.expectedDeliveryAt ?? (bid.expectedDeliveryAt ? bid.expectedDeliveryAt.substring(0,10) : '')"
+                       (change)="setDeliveryField(bid.id, 'expectedDeliveryAt', $event)" />
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">Delivered At</div>
+                <input type="date" class="inline-input"
+                       [value]="deliveryDraft[bid.id]?.deliveredAt ?? (bid.deliveredAt ? bid.deliveredAt.substring(0,10) : '')"
+                       (change)="setDeliveryField(bid.id, 'deliveredAt', $event)" />
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">Received Qty</div>
+                <input type="number" min="0" class="inline-input" style="width:100%;"
+                       [value]="deliveryDraft[bid.id]?.receivedQty ?? (bid.receivedQty ?? '')"
+                       (input)="setDeliveryField(bid.id, 'receivedQty', $event)" />
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">Discrepancy Notes</div>
+                <input type="text" class="inline-input" placeholder="Optional"
+                       [value]="deliveryDraft[bid.id]?.discrepancyNotes ?? (bid.discrepancyNotes ?? '')"
+                       (input)="setDeliveryField(bid.id, 'discrepancyNotes', $event)" />
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+              <button (click)="saveDelivery(bid)" [disabled]="savingDelivery === bid.id" class="btn-primary" style="font-size:12px; padding:5px 14px;">
+                {{ savingDelivery === bid.id ? 'Saving...' : 'Save Delivery' }}
               </button>
+              <span *ngIf="deliverySaved === bid.id" class="alert alert-success" style="padding:4px 10px; margin:0; font-size:12px;">Saved</span>
+              <span *ngIf="deliveryError === bid.id" class="alert alert-error" style="padding:4px 10px; margin:0; font-size:12px;">Save failed</span>
             </div>
           </div>
-        </section>
-
-        <!-- Already awarded -->
-        <section *ngIf="round.status === 'AWARDED'" style="padding:12px 16px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; font-size:13px; color:#15803d; margin-bottom:16px;">
-          This round has been awarded. View PO quotes in the Quotations section.
-        </section>
+          <div *ngIf="awardedBids().length === 0" class="empty-state" style="padding:16px;">No awarded vendors found.</div>
+        </div>
 
       </ng-container>
 
       <div *ngIf="pageError" class="error" style="margin-top:12px;">{{ pageError }}</div>
     </div>
   `,
-  styles: [`
-    .badge.open { background:#dbeafe; color:#1d4ed8; }
-    .badge.comparing { background:#fef3c7; color:#92400e; }
-    .badge.awarded { background:#d1fae5; color:#065f46; }
-    .badge.closed { background:#f3f4f6; color:#374151; }
-    .badge.pending { background:#f3f4f6; color:#6b7280; }
-    .badge.sent { background:#dbeafe; color:#1d4ed8; }
-    .badge.received { background:#d1fae5; color:#065f46; }
-    .badge.declined { background:#fee2e2; color:#b91c1c; }
-  `],
 })
 export class ProcurementDetailComponent implements OnInit, OnDestroy {
   round: ProcurementRoundDto | null = null;
@@ -358,6 +352,11 @@ export class ProcurementDetailComponent implements OnInit, OnDestroy {
   awarding = false;
   awardError = "";
   awardResult: { type: string; quotations: { id: string; referenceNumber: string; vendorId: string; totalAmount: number }[] } | null = null;
+
+  deliveryDraft: Record<string, { expectedDeliveryAt?: string; deliveredAt?: string; receivedQty?: number; discrepancyNotes?: string }> = {};
+  savingDelivery = "";
+  deliverySaved = "";
+  deliveryError = "";
 
   private readonly roundId: string;
   private readonly destroy$ = new Subject<void>();
@@ -529,6 +528,61 @@ export class ProcurementDetailComponent implements OnInit, OnDestroy {
         setTimeout(() => { this.savedTemplateMsg = ""; }, 4000);
       },
       error: () => { this.savingTemplate = false; },
+    });
+  }
+
+  awardedBids(): VendorBidDto[] {
+    if (!this.round) return [];
+    return this.round.vendorBids.filter(b => b.quotationId != null);
+  }
+
+  deliveryStatus(bid: VendorBidDto): string {
+    if (bid.deliveredAt) return "received";
+    if (bid.expectedDeliveryAt) return "pending";
+    return "awaiting";
+  }
+
+  setDeliveryField(bidId: string, field: string, event: Event) {
+    const value = (event.target as HTMLInputElement).value;
+    if (!this.deliveryDraft[bidId]) this.deliveryDraft[bidId] = {};
+    if (field === "receivedQty") {
+      this.deliveryDraft[bidId][field] = value ? Number(value) : undefined;
+    } else {
+      (this.deliveryDraft[bidId] as Record<string, string | undefined>)[field] = value || undefined;
+    }
+  }
+
+  saveDelivery(bid: VendorBidDto) {
+    const draft = this.deliveryDraft[bid.id] ?? {};
+    const payload: { expectedDeliveryAt?: string; deliveredAt?: string; receivedQty?: number; discrepancyNotes?: string } = {};
+    const expDelivery = draft.expectedDeliveryAt ?? (bid.expectedDeliveryAt ? bid.expectedDeliveryAt.substring(0, 10) : undefined);
+    const deliveredAt = draft.deliveredAt ?? (bid.deliveredAt ? bid.deliveredAt.substring(0, 10) : undefined);
+    if (expDelivery) payload.expectedDeliveryAt = expDelivery;
+    if (deliveredAt) payload.deliveredAt = deliveredAt;
+    if (draft.receivedQty != null) payload.receivedQty = draft.receivedQty;
+    else if (bid.receivedQty != null) payload.receivedQty = bid.receivedQty;
+    const discrepancy = draft.discrepancyNotes ?? bid.discrepancyNotes ?? undefined;
+    if (discrepancy) payload.discrepancyNotes = discrepancy;
+
+    this.savingDelivery = bid.id;
+    this.deliverySaved = "";
+    this.deliveryError = "";
+    this.procurementService.updateDelivery(this.roundId, bid.id, payload).pipe(takeUntil(this.destroy$)).subscribe({
+      next: updated => {
+        this.savingDelivery = "";
+        this.deliverySaved = bid.id;
+        delete this.deliveryDraft[bid.id];
+        if (this.round) {
+          const idx = this.round.vendorBids.findIndex(b => b.id === bid.id);
+          if (idx >= 0) this.round.vendorBids[idx] = updated;
+        }
+        setTimeout(() => { if (this.deliverySaved === bid.id) this.deliverySaved = ""; }, 3000);
+      },
+      error: () => {
+        this.savingDelivery = "";
+        this.deliveryError = bid.id;
+        setTimeout(() => { if (this.deliveryError === bid.id) this.deliveryError = ""; }, 3000);
+      },
     });
   }
 

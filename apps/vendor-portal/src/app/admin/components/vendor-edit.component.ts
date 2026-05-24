@@ -1,9 +1,10 @@
 import { CommonModule } from "@angular/common";
-import { AfterViewInit, Component, ElementRef, OnInit, ViewChild } from "@angular/core";
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from "@angular/forms";
 import { ActivatedRoute, RouterLink } from "@angular/router";
 import { AuditLogResponseDto, ContactLogResponseDto, ContactLogType, DocumentResponseDto, ContactStatus, PaymentType, VendorCategory, VendorResponseDto } from "@fulfilus/shared";
 import { FormsModule } from "@angular/forms";
+import { Subject, interval, switchMap, takeUntil } from "rxjs";
 import { GoogleMapsService } from "../../core/google-maps.service";
 import { VendorService } from "../../vendor/services/vendor.service";
 
@@ -14,8 +15,14 @@ import { VendorService } from "../../vendor/services/vendor.service";
   template: `
     <div class="admin-page">
       <div class="admin-header">
-        <a routerLink="/admin" class="btn-link">← Back to list</a>
-        <h2>{{ vendor?.shopName ?? 'Loading...' }}</h2>
+        <div>
+          <a routerLink="/admin" class="back-link">Vendors</a>
+          <h2>{{ vendor?.shopName ?? 'Loading...' }}</h2>
+        </div>
+        <div class="admin-header-actions">
+          <a routerLink="/procurement/scorecard" class="btn-secondary">Vendor Scorecard</a>
+          <a *ngIf="vendor" [routerLink]="['/quotations']" [queryParams]="{ vendorId: vendor.id }" class="btn-secondary">Quotations</a>
+        </div>
       </div>
 
       <div *ngIf="loading" class="empty-state">Loading...</div>
@@ -60,22 +67,22 @@ import { VendorService } from "../../vendor/services/vendor.service";
           <img [src]="vendor!.shopPhotoUrl" class="photo-preview" alt="Shop photo" />
         </section>
 
-        <section *ngIf="vendor?.rating || vendor?.placeId" style="display:flex; gap:16px; align-items:center;">
-          <span *ngIf="vendor?.rating" style="font-size:13px; color:#d97706;">
-            &#9733; {{ vendor!.rating!.toFixed(1) }} / 5 <span style="color:#9ca3af;">(Google Maps)</span>
+        <section *ngIf="vendor?.rating || vendor?.placeId" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+          <span *ngIf="vendor?.rating" style="font-size:13px; color:var(--amber); font-weight:600;">
+            &#9733; {{ vendor!.rating!.toFixed(1) }} / 5 <span style="color:var(--text-faint); font-weight:400;">(Google Maps)</span>
           </span>
-          <span *ngIf="vendor?.confidenceScore != null" style="font-size:13px;">
-            AI confidence:
-            <strong [style.color]="vendor!.confidenceScore! >= 0.7 ? '#16a34a' : vendor!.confidenceScore! >= 0.4 ? '#d97706' : '#dc2626'">
-              {{ (vendor!.confidenceScore! * 100).toFixed(0) }}%
-            </strong>
+          <span *ngIf="vendor?.confidenceScore != null" class="score-pill"
+            [class.high]="vendor!.confidenceScore! >= 0.7"
+            [class.mid]="vendor!.confidenceScore! >= 0.4 && vendor!.confidenceScore! < 0.7"
+            [class.low]="vendor!.confidenceScore! < 0.4">
+            AI {{ (vendor!.confidenceScore! * 100).toFixed(0) }}%
           </span>
-          <button type="button" (click)="reEnrich()" [disabled]="reEnriching" class="btn-secondary" style="font-size:12px; padding:4px 10px;">
-            {{ reEnriching ? 'Re-enriching...' : 'Re-enrich from Maps' }}
+          <button type="button" (click)="reEnrich()" [disabled]="reEnriching" class="btn-secondary">
+            {{ reEnriching ? reEnrichStatus || 'Re-enriching...' : 'Re-enrich from Maps' }}
           </button>
           <a *ngIf="vendor?.placeId"
              href="https://maps.google.com/?place_id={{ vendor!.placeId }}"
-             target="_blank" class="btn-link" style="font-size:12px;">
+             target="_blank" class="btn-link">
             View on Google Maps
           </a>
         </section>
@@ -104,12 +111,7 @@ import { VendorService } from "../../vendor/services/vendor.service";
           <button type="submit" [disabled]="form.invalid || saving">
             {{ saving ? 'Saving...' : 'Save Changes' }}
           </button>
-          <a *ngIf="vendor" [routerLink]="['/quotations']" [queryParams]="{ vendorId: vendor.id }"
-             class="btn-secondary" style="margin-left:12px;">
-            View Quotations
-          </a>
-          <a *ngIf="vendor" [routerLink]="['/quotations', 'new']" [queryParams]="{ vendorId: vendor.id }"
-             class="btn-secondary" style="margin-left:8px;">
+          <a *ngIf="vendor" [routerLink]="['/quotations', 'new']" [queryParams]="{ vendorId: vendor.id }" class="btn-secondary">
             + New Quotation
           </a>
         </div>
@@ -119,120 +121,171 @@ import { VendorService } from "../../vendor/services/vendor.service";
       </form>
 
       <!-- Documents -->
-      <section style="margin-top:32px;" *ngIf="!loading">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-          <h3 style="font-size:14px; font-weight:600; color:#374151; margin:0;">Documents</h3>
+      <div class="panel" style="margin-top:24px;" *ngIf="!loading">
+        <div class="panel-header">
+          <h3>Documents</h3>
           <label style="cursor:pointer;" class="btn-secondary">
             {{ docUploading ? 'Uploading...' : '+ Upload Document' }}
             <input type="file" style="display:none;" (change)="onDocSelected($event)" [disabled]="docUploading" />
           </label>
         </div>
-        <div class="table-wrapper" *ngIf="documents.length">
+        <div class="table-wrapper" style="border-radius:0 0 var(--r-xl) var(--r-xl);" *ngIf="documents.length">
           <table>
             <thead><tr><th>Type</th><th>File</th><th>Size</th><th>Added</th><th></th></tr></thead>
             <tbody>
               <tr *ngFor="let d of documents">
                 <td><span class="chip">{{ d.type }}</span></td>
                 <td><a [href]="d.url" target="_blank" class="btn-link">View</a></td>
-                <td style="font-size:12px; color:#6b7280;">{{ formatBytes(d.sizeBytes) }}</td>
+                <td style="color:var(--text-muted);">{{ formatBytes(d.sizeBytes) }}</td>
                 <td style="white-space:nowrap;">{{ d.createdAt | date:'dd MMM yy' }}</td>
-                <td>
-                  <button (click)="deleteDoc(d.id)"
-                    style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:13px;padding:0;">
-                    Delete
-                  </button>
-                </td>
+                <td><button (click)="deleteDoc(d.id)" class="btn-link" style="color:var(--red);">Delete</button></td>
               </tr>
             </tbody>
           </table>
         </div>
-        <p *ngIf="!documents.length" class="empty-state" style="font-size:12px;">No documents uploaded.</p>
-        <div *ngIf="docError" class="error" style="margin-top:8px;">{{ docError }}</div>
-      </section>
+        <div class="panel-body" *ngIf="!documents.length">
+          <p class="empty-state">No documents uploaded.</p>
+        </div>
+        <div *ngIf="docError" class="alert alert-error" style="margin:0 16px 16px;">{{ docError }}</div>
+      </div>
 
       <!-- Audit Log -->
-      <section style="margin-top:32px;" *ngIf="!loading">
-        <h3 style="font-size:14px; font-weight:600; color:#374151; margin-bottom:12px;">Audit History</h3>
-        <div *ngIf="auditLoading" class="empty-state">Loading history...</div>
-        <div class="table-wrapper" *ngIf="!auditLoading && auditLogs.length">
+      <div class="panel" style="margin-top:24px;" *ngIf="!loading">
+        <div class="panel-header"><h3>Audit History</h3></div>
+        <div *ngIf="auditLoading" class="panel-body"><p class="empty-state">Loading history...</p></div>
+        <div class="table-wrapper" style="border-radius:0 0 var(--r-xl) var(--r-xl);" *ngIf="!auditLoading && auditLogs.length">
           <table>
-            <thead>
-              <tr>
-                <th>Action</th>
-                <th>Changed By</th>
-                <th>When</th>
-                <th>Details</th>
-              </tr>
-            </thead>
+            <thead><tr><th>Action</th><th>Changed By</th><th>When</th><th>Details</th></tr></thead>
             <tbody>
               <tr *ngFor="let log of auditLogs">
                 <td><span class="chip">{{ log.action }}</span></td>
                 <td>{{ log.changedBy }}</td>
                 <td style="white-space:nowrap;">{{ log.createdAt | date:'dd MMM yy, HH:mm' }}</td>
-                <td class="truncate" style="max-width:260px; font-size:12px; color:#6b7280;">
-                  {{ log.diff ? (log.diff | json) : '—' }}
+                <td class="truncate" style="max-width:260px; color:var(--text-muted);">{{ log.diff ? (log.diff | json) : '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="panel-body" *ngIf="!auditLoading && !auditLogs.length">
+          <p class="empty-state">No audit history yet.</p>
+        </div>
+      </div>
+
+      <!-- Contact Log -->
+      <div class="panel" style="margin-top:24px;" *ngIf="!loading">
+        <div class="panel-header"><h3>Contact Log</h3></div>
+        <div class="panel-body">
+          <div class="contact-log-form">
+            <div class="contact-log-field">
+              <label>Type</label>
+              <select [(ngModel)]="newLogType" class="inline-input">
+                <option value="CALL">Call</option>
+                <option value="WHATSAPP">WhatsApp</option>
+                <option value="VISIT">Visit</option>
+                <option value="EMAIL">Email</option>
+              </select>
+            </div>
+            <div class="contact-log-field" style="flex:1; min-width:180px;">
+              <label>Notes</label>
+              <input [(ngModel)]="newLogNotes" placeholder="What was discussed..." class="inline-input" />
+            </div>
+            <div class="contact-log-field" style="min-width:140px;">
+              <label>Contacted by</label>
+              <input [(ngModel)]="newLogContactedBy" placeholder="Your name" class="inline-input" />
+            </div>
+            <button type="button" (click)="addContactLog()" [disabled]="!newLogContactedBy.trim() || contactLogSaving"
+              class="btn-primary" style="align-self:flex-end;">
+              {{ contactLogSaving ? 'Saving...' : '+ Log Contact' }}
+            </button>
+          </div>
+          <div *ngIf="contactLogError" class="alert alert-error">{{ contactLogError }}</div>
+
+          <div *ngIf="contactLogs.length" class="contact-timeline" style="margin-top:16px;">
+            <div *ngFor="let log of contactLogs" class="timeline-entry">
+              <div class="timeline-dot" [ngClass]="'dot-' + log.type.toLowerCase()"></div>
+              <div class="timeline-body">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <span class="chip">{{ log.type }}</span>
+                  <span style="font-size:11px; color:var(--text-faint);">{{ log.contactedAt | date:'dd MMM yy, HH:mm' }}</span>
+                </div>
+                <p *ngIf="log.notes" style="margin:6px 0 0; font-size:13px;">{{ log.notes }}</p>
+                <div style="display:flex; justify-content:space-between; margin-top:6px;">
+                  <span style="font-size:11px; color:var(--text-muted);">by {{ log.contactedBy }}</span>
+                  <button (click)="deleteContactLog(log.id)" class="btn-link" style="font-size:11px; color:var(--red);">Remove</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p *ngIf="!contactLogs.length" class="empty-state">No contact interactions logged yet.</p>
+        </div>
+      </div>
+
+      <!-- Vendor Invoices -->
+      <div class="panel" style="margin-top:24px;" *ngIf="!loading">
+        <div class="panel-header">
+          <h3>Invoices ({{ vendorInvoices.length }})</h3>
+        </div>
+        <div class="panel-body">
+          <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:8px; margin-bottom:10px;">
+            <div>
+              <div style="font-size:11px; color:var(--text-muted); margin-bottom:3px;">Invoice #</div>
+              <input [(ngModel)]="newInvoice.invoiceNumber" class="inline-input" style="width:100%;" placeholder="INV-2026-001" />
+            </div>
+            <div>
+              <div style="font-size:11px; color:var(--text-muted); margin-bottom:3px;">Amount (₹)</div>
+              <input [(ngModel)]="newInvoice.amount" type="number" min="0" class="inline-input" style="width:100%;" placeholder="0.00" />
+            </div>
+            <div>
+              <div style="font-size:11px; color:var(--text-muted); margin-bottom:3px;">Due Date</div>
+              <input [(ngModel)]="newInvoice.dueAt" type="date" class="inline-input" style="width:100%;" />
+            </div>
+            <div>
+              <div style="font-size:11px; color:var(--text-muted); margin-bottom:3px;">Notes</div>
+              <input [(ngModel)]="newInvoice.notes" class="inline-input" style="width:100%;" placeholder="Optional" />
+            </div>
+          </div>
+          <button (click)="addInvoice()" [disabled]="!newInvoice.invoiceNumber || !newInvoice.amount || savingInvoice" class="btn-primary" style="font-size:12px; padding:6px 14px;">
+            {{ savingInvoice ? 'Adding...' : 'Add Invoice' }}
+          </button>
+          <div *ngIf="invoiceError" class="alert alert-error" style="margin-top:8px;">{{ invoiceError }}</div>
+        </div>
+        <div class="table-wrapper" *ngIf="vendorInvoices.length" style="border-radius:0 0 var(--r-xl) var(--r-xl);">
+          <table>
+            <thead>
+              <tr>
+                <th>Invoice #</th>
+                <th style="text-align:right;">Amount</th>
+                <th>Due</th>
+                <th>Paid</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let inv of vendorInvoices">
+                <td style="font-weight:600;">{{ inv.invoiceNumber }}</td>
+                <td style="text-align:right;">₹{{ inv.amount.toFixed(2) }}</td>
+                <td style="color:var(--text-muted);">{{ inv.dueAt ? (inv.dueAt | date:'dd MMM yy') : '—' }}</td>
+                <td style="color:var(--green);">{{ inv.paidAt ? (inv.paidAt | date:'dd MMM yy') : '—' }}</td>
+                <td>
+                  <span class="badge" [ngClass]="inv.paidAt ? 'received' : 'pending'">{{ inv.paidAt ? 'Paid' : 'Unpaid' }}</span>
+                </td>
+                <td style="display:flex; gap:6px;">
+                  <button *ngIf="!inv.paidAt" (click)="markInvoicePaid(inv)" class="btn-link" style="color:var(--green); font-size:12px;">Mark Paid</button>
+                  <button (click)="deleteInvoice(inv)" class="btn-link" style="color:var(--red); font-size:12px;">Delete</button>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
-        <p *ngIf="!auditLoading && !auditLogs.length" class="empty-state">No audit history yet.</p>
-      </section>
-
-      <!-- Contact Log -->
-      <section style="margin-top:32px;" *ngIf="!loading">
-        <h3 style="font-size:14px; font-weight:600; color:#374151; margin-bottom:12px;">Contact Log</h3>
-
-        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; margin-bottom:16px; padding:12px; background:#f9fafb; border-radius:8px; border:1px solid #e5e7eb;">
-          <div style="display:flex; flex-direction:column; gap:4px;">
-            <label style="font-size:11px; color:#6b7280; font-weight:500;">Type</label>
-            <select [(ngModel)]="newLogType" style="padding:6px 8px; border:1px solid #d1d5db; border-radius:6px; font-size:13px;">
-              <option value="CALL">Call</option>
-              <option value="WHATSAPP">WhatsApp</option>
-              <option value="VISIT">Visit</option>
-              <option value="EMAIL">Email</option>
-            </select>
-          </div>
-          <div style="display:flex; flex-direction:column; gap:4px; flex:1; min-width:180px;">
-            <label style="font-size:11px; color:#6b7280; font-weight:500;">Notes</label>
-            <input [(ngModel)]="newLogNotes" placeholder="What was discussed..." style="padding:6px 8px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; width:100%;" />
-          </div>
-          <div style="display:flex; flex-direction:column; gap:4px; min-width:120px;">
-            <label style="font-size:11px; color:#6b7280; font-weight:500;">Contacted by</label>
-            <input [(ngModel)]="newLogContactedBy" placeholder="Your name" style="padding:6px 8px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; width:100%;" />
-          </div>
-          <button type="button" (click)="addContactLog()" [disabled]="!newLogContactedBy.trim() || contactLogSaving"
-            style="padding:6px 16px; background:#2563eb; color:#fff; border:none; border-radius:6px; font-size:13px; font-weight:500; cursor:pointer; white-space:nowrap; align-self:flex-end;">
-            {{ contactLogSaving ? 'Saving...' : '+ Log Contact' }}
-          </button>
+        <div class="panel-body" *ngIf="!vendorInvoices.length" style="padding:12px 16px;">
+          <p class="empty-state">No invoices recorded.</p>
         </div>
-        <div *ngIf="contactLogError" class="error" style="margin-bottom:8px;">{{ contactLogError }}</div>
-
-        <div *ngIf="contactLogs.length" class="contact-timeline">
-          <div *ngFor="let log of contactLogs" class="timeline-entry">
-            <div class="timeline-dot" [ngClass]="'dot-' + log.type.toLowerCase()"></div>
-            <div class="timeline-body">
-              <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span class="chip" style="font-size:11px;">{{ log.type }}</span>
-                <span style="font-size:11px; color:#9ca3af;">{{ log.contactedAt | date:'dd MMM yy, HH:mm' }}</span>
-              </div>
-              <p *ngIf="log.notes" style="margin:4px 0 0; font-size:13px; color:#374151;">{{ log.notes }}</p>
-              <div style="display:flex; justify-content:space-between; margin-top:4px;">
-                <span style="font-size:11px; color:#6b7280;">by {{ log.contactedBy }}</span>
-                <button (click)="deleteContactLog(log.id)"
-                  style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:11px;padding:0;">
-                  Remove
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-        <p *ngIf="!contactLogs.length" class="empty-state" style="font-size:12px;">No contact interactions logged yet.</p>
-      </section>
+      </div>
     </div>
   `,
 })
-export class VendorEditComponent implements OnInit, AfterViewInit {
+export class VendorEditComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild("locationInput") locationInputRef!: ElementRef<HTMLInputElement>;
 
   vendor: VendorResponseDto | null = null;
@@ -243,6 +296,8 @@ export class VendorEditComponent implements OnInit, AfterViewInit {
   errorMessage = "";
 
   reEnriching = false;
+  reEnrichStatus = "";
+  private readonly destroy$ = new Subject<void>();
 
   auditLogs: AuditLogResponseDto[] = [];
   auditLoading = false;
@@ -262,6 +317,11 @@ export class VendorEditComponent implements OnInit, AfterViewInit {
   ContactStatus = ContactStatus;
   PaymentType = PaymentType;
 
+  vendorInvoices: { id: string; invoiceNumber: string; amount: number; dueAt: string | null; paidAt: string | null; notes: string | null; quotationId: string | null }[] = [];
+  newInvoice = { invoiceNumber: "", amount: 0, dueAt: "", notes: "" };
+  savingInvoice = false;
+  invoiceError = "";
+
   constructor(
     private readonly route: ActivatedRoute,
     private readonly fb: FormBuilder,
@@ -279,6 +339,7 @@ export class VendorEditComponent implements OnInit, AfterViewInit {
         this.loadAuditLogs(id);
         this.loadDocuments(id);
         this.loadContactLogs(id);
+        this.loadVendorInvoices(id);
       },
       error: () => {
         this.errorMessage = "Vendor not found.";
@@ -290,14 +351,45 @@ export class VendorEditComponent implements OnInit, AfterViewInit {
   reEnrich() {
     if (!this.vendor) return;
     this.reEnriching = true;
+    this.reEnrichStatus = "Starting...";
     this.errorMessage = "";
-    this.vendorService.reEnrich(this.vendor.id).subscribe({
-      next: result => {
-        this.successMessage = `Re-enriched with ${(result.confidence * 100).toFixed(0)}% confidence. Reload to see updates.`;
-        this.reEnriching = false;
+    this.successMessage = "";
+    const vendorId = this.vendor.id;
+    this.vendorService.reEnrich(vendorId).subscribe({
+      next: ({ jobId }) => {
+        this.reEnrichStatus = "Running...";
+        interval(2000).pipe(
+          switchMap(() => this.vendorService.pollEnrichmentJob(jobId)),
+          takeUntil(this.destroy$),
+        ).subscribe({
+          next: job => {
+            if (job.status === "COMPLETED") {
+              const score = job.confidenceScore != null ? ` — ${(job.confidenceScore * 100).toFixed(0)}% confidence` : "";
+              this.reEnrichStatus = `Completed${score}`;
+              this.successMessage = `Re-enrichment complete${score}. Reload to see updates.`;
+              this.reEnriching = false;
+              this.destroy$.next();
+              this.vendorService.getById(vendorId).subscribe({ next: v => { this.vendor = v; } });
+            } else if (job.status === "FAILED") {
+              this.reEnrichStatus = "Failed";
+              this.errorMessage = job.errorMessage ?? "Re-enrichment failed.";
+              this.reEnriching = false;
+              this.destroy$.next();
+            }
+          },
+          error: () => {
+            this.errorMessage = "Error polling enrichment status.";
+            this.reEnriching = false;
+          },
+        });
       },
-      error: () => { this.errorMessage = "Re-enrichment failed."; this.reEnriching = false; },
+      error: () => { this.errorMessage = "Re-enrichment failed to start."; this.reEnriching = false; this.reEnrichStatus = ""; },
     });
+  }
+
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   private loadDocuments(id: string) {
@@ -358,6 +450,55 @@ export class VendorEditComponent implements OnInit, AfterViewInit {
     this.vendorService.deleteContactLog(this.vendor.id, logId).subscribe({
       next: () => { this.contactLogs = this.contactLogs.filter(l => l.id !== logId); },
       error: () => { this.contactLogError = "Failed to delete contact log."; },
+    });
+  }
+
+  loadVendorInvoices(vendorId: string) {
+    this.vendorService.listVendorInvoices(vendorId).subscribe({
+      next: inv => { this.vendorInvoices = inv; },
+      error: () => {},
+    });
+  }
+
+  addInvoice() {
+    if (!this.vendor || !this.newInvoice.invoiceNumber || !this.newInvoice.amount) return;
+    this.savingInvoice = true;
+    this.invoiceError = "";
+    this.vendorService.createVendorInvoice(this.vendor.id, {
+      invoiceNumber: this.newInvoice.invoiceNumber,
+      amount: this.newInvoice.amount,
+      dueAt: this.newInvoice.dueAt || undefined,
+      notes: this.newInvoice.notes || undefined,
+    }).subscribe({
+      next: inv => {
+        this.vendorInvoices = [inv, ...this.vendorInvoices];
+        this.newInvoice = { invoiceNumber: "", amount: 0, dueAt: "", notes: "" };
+        this.savingInvoice = false;
+      },
+      error: (err: unknown) => {
+        this.invoiceError = (err as { error?: { message?: string } })?.error?.message ?? "Failed to add invoice.";
+        this.savingInvoice = false;
+      },
+    });
+  }
+
+  markInvoicePaid(inv: { id: string; [key: string]: unknown }) {
+    if (!this.vendor) return;
+    const paidAt = new Date().toISOString();
+    this.vendorService.updateVendorInvoice(this.vendor.id, inv.id, { paidAt }).subscribe({
+      next: updated => {
+        const idx = this.vendorInvoices.findIndex(i => i.id === inv.id);
+        if (idx >= 0) this.vendorInvoices[idx] = { ...this.vendorInvoices[idx], paidAt: updated.paidAt };
+      },
+      error: () => { this.invoiceError = "Failed to mark as paid."; },
+    });
+  }
+
+  deleteInvoice(inv: { id: string; invoiceNumber: string }) {
+    if (!this.vendor || !confirm(`Delete invoice ${inv.invoiceNumber}?`)) return;
+    this.vendorService.deleteVendorInvoice(this.vendor.id, inv.id).subscribe({
+      next: () => { this.vendorInvoices = this.vendorInvoices.filter(i => i.id !== inv.id); },
+      error: () => { this.invoiceError = "Failed to delete invoice."; },
     });
   }
 

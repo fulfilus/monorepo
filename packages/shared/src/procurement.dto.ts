@@ -21,6 +21,10 @@ export interface VendorBidDto {
   quotationId?: string | null;
   vendor: { id: string; shopName: string; whatsappNumber?: string };
   quotation?: { id: string; referenceNumber: string; status: string } | null;
+  expectedDeliveryAt?: string | null;
+  deliveredAt?: string | null;
+  receivedQty?: number | null;
+  discrepancyNotes?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -30,6 +34,7 @@ export interface ProcurementRoundDto {
   title: string;
   status: ProcurementStatus;
   notes: string | null;
+  deadline?: string | null;
   items: ProcurementItemDto[];
   vendorBids: VendorBidDto[];
   createdAt: string;

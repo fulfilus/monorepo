@@ -46,6 +46,7 @@ const mockVendorService = {
 
 const mockEnrichmentService = {
   enrichFromMapsUrl: vi.fn(),
+  startEnrichmentJob: vi.fn(),
 };
 
 describe("VendorController (e2e)", () => {
@@ -261,6 +262,57 @@ describe("VendorController (e2e)", () => {
       const res = await fastify().inject({ method: "GET", url: `/vendors/${TEST_UUID}/enrichment-jobs` });
 
       expect(res.statusCode).toBe(200);
+    });
+  });
+
+  // --- POST /vendors/:id/re-enrich ---
+
+  describe("POST /vendors/:id/re-enrich", () => {
+    it("returns jobId immediately (async fire-and-forget)", async () => {
+      const jobId = "job-abc-123";
+      mockVendorService.findOne.mockResolvedValue({ ...mockVendor, placeId: null });
+      mockEnrichmentService.startEnrichmentJob.mockResolvedValue(jobId);
+      mockVendorService.linkEnrichmentJob.mockResolvedValue(undefined);
+
+      const res = await fastify().inject({
+        method: "POST",
+        url: `/vendors/${TEST_UUID}/re-enrich`,
+        headers: { "content-type": "application/json" },
+        payload: "{}",
+      });
+
+      expect(res.statusCode).toBe(201);
+      expect(JSON.parse(res.payload)).toMatchObject({ jobId: "job-abc-123" });
+    });
+
+    it("uses placeId in maps URL when vendor has placeId", async () => {
+      const jobId = "job-place-999";
+      mockVendorService.findOne.mockResolvedValue({ ...mockVendor, placeId: "ChIJplace123" });
+      mockEnrichmentService.startEnrichmentJob.mockResolvedValue(jobId);
+      mockVendorService.linkEnrichmentJob.mockResolvedValue(undefined);
+
+      await fastify().inject({
+        method: "POST",
+        url: `/vendors/${TEST_UUID}/re-enrich`,
+        headers: { "content-type": "application/json" },
+        payload: "{}",
+      });
+
+      const calledUrl = mockEnrichmentService.startEnrichmentJob.mock.calls[0][0] as string;
+      expect(calledUrl).toContain("ChIJplace123");
+    });
+
+    it("returns 404 when vendor not found", async () => {
+      mockVendorService.findOne.mockRejectedValue(new NotFoundException());
+
+      const res = await fastify().inject({
+        method: "POST",
+        url: "/vendors/nonexistent/re-enrich",
+        headers: { "content-type": "application/json" },
+        payload: "{}",
+      });
+
+      expect(res.statusCode).toBe(404);
     });
   });
 

@@ -1,11 +1,16 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Query, UsePipes, ValidationPipe } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Query, Req, UsePipes, ValidationPipe } from "@nestjs/common";
 import { IsEnum, IsOptional, IsString } from "class-validator";
+import { FastifyRequest } from "fastify";
+import { JwtPayload } from "../auth/guards/jwt.guard";
 import { InboundService } from "./inbound.service";
 
 class ReviewDto {
   @IsEnum(["APPROVED", "REJECTED"]) action!: "APPROVED" | "REJECTED";
-  @IsString() reviewedBy!: string;
   @IsOptional() @IsString() reviewNotes?: string;
+}
+
+function actor(req: FastifyRequest): string {
+  return ((req as FastifyRequest & { user?: JwtPayload }).user?.username) ?? "system";
 }
 
 @Controller("inbound")
@@ -23,7 +28,7 @@ export class InboundController {
 
   @Patch(":quoteId/review")
   @HttpCode(HttpStatus.OK)
-  review(@Param("quoteId") quoteId: string, @Body() dto: ReviewDto) {
-    return this.inboundService.reviewQuote(quoteId, dto.action, dto.reviewedBy, dto.reviewNotes);
+  review(@Param("quoteId") quoteId: string, @Body() dto: ReviewDto, @Req() req: FastifyRequest) {
+    return this.inboundService.reviewQuote(quoteId, dto.action, actor(req), dto.reviewNotes);
   }
 }

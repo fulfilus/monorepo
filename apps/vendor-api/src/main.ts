@@ -5,13 +5,16 @@ import {
   NestFastifyApplication,
 } from "@nestjs/platform-fastify";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import fastifyCookie from "@fastify/cookie";
+import fastifyHelmet from "@fastify/helmet";
 import fastifyMultipart from "@fastify/multipart";
+import fastifyRateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { AppModule } from "./app.module";
 
-const REQUIRED_ENV = ["DATABASE_URL", "ANTHROPIC_API_KEY"] as const;
+const REQUIRED_ENV = ["DATABASE_URL", "ANTHROPIC_API_KEY", "JWT_SECRET"] as const;
 const OPTIONAL_ENV = ["GOOGLE_MAPS_SERVER_KEY", "ALLOWED_ORIGINS", "WHATSAPP_API_TOKEN", "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_VERIFY_TOKEN"] as const;
 
 function validateEnv(): void {
@@ -35,6 +38,22 @@ async function bootstrap() {
 
   const uploadsDir = join(process.cwd(), "uploads");
   mkdirSync(uploadsDir, { recursive: true });
+
+  await app.register(fastifyHelmet, {
+    contentSecurityPolicy: false, // frontend loads inline scripts via Angular
+  });
+
+  await app.register(fastifyRateLimit, {
+    global: true,
+    max: 200,
+    timeWindow: 60_000,
+    // Auth endpoints get a tighter limit
+    keyGenerator: (req) => req.ip,
+  });
+
+  await app.register(fastifyCookie, {
+    secret: process.env["COOKIE_SECRET"] ?? process.env["JWT_SECRET"],
+  });
 
   await app.register(fastifyMultipart, {
     limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB

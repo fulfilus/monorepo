@@ -55,7 +55,7 @@ export interface PriceSuggestion {
     vendorName: string;
     price: number;
     unit: string | null;
-    source: "PRICE_LIST" | "PROCUREMENT_BID";
+    source: "PRICE_LIST" | "PROCUREMENT_BID" | "AGREED_RATE";
     date: string;
 }
 export interface PriceLookupResult {

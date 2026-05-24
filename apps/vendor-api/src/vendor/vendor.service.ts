@@ -321,4 +321,40 @@ export class VendorService {
 
     return { imported, skipped, errors };
   }
+
+  async listVendorInvoices(vendorId: string) {
+    return this.prisma.vendorInvoice.findMany({
+      where: { vendorId },
+      orderBy: { createdAt: "desc" },
+      include: { quotation: { select: { id: true, referenceNumber: true } } },
+    });
+  }
+
+  async createVendorInvoice(vendorId: string, dto: { invoiceNumber: string; amount: number; dueAt?: string; quotationId?: string; notes?: string }) {
+    return this.prisma.vendorInvoice.create({
+      data: {
+        vendorId,
+        invoiceNumber: dto.invoiceNumber,
+        amount: dto.amount,
+        dueAt: dto.dueAt ? new Date(dto.dueAt) : undefined,
+        quotationId: dto.quotationId ?? undefined,
+        notes: dto.notes ?? undefined,
+      },
+    });
+  }
+
+  async updateVendorInvoice(vendorId: string, invoiceId: string, dto: { paidAt?: string; dueAt?: string; notes?: string }) {
+    return this.prisma.vendorInvoice.update({
+      where: { id: invoiceId, vendorId },
+      data: {
+        ...(dto.paidAt !== undefined ? { paidAt: dto.paidAt ? new Date(dto.paidAt) : null } : {}),
+        ...(dto.dueAt !== undefined ? { dueAt: dto.dueAt ? new Date(dto.dueAt) : null } : {}),
+        ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
+      },
+    });
+  }
+
+  async deleteVendorInvoice(vendorId: string, invoiceId: string) {
+    return this.prisma.vendorInvoice.delete({ where: { id: invoiceId, vendorId } });
+  }
 }

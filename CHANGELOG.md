@@ -10,6 +10,30 @@ Format: `## [version] YYYY-MM-DD` with sections Added / Changed / Fixed / Remove
 > Changes merged into `main` but not yet tagged as a release.
 
 ### Added
+- JWT authentication system — access tokens (15 min, Bearer) + httpOnly cookie refresh tokens (7 days, DB-stored with rotation); `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `GET /auth/me`, `POST /auth/change-password`
+- TOTP two-factor authentication — `POST /auth/2fa/setup` generates secret + QR code; `POST /auth/2fa/enable` verifies and activates; `POST /auth/2fa/disable` deactivates; `POST /auth/2fa/confirm` completes login flow
+- Account lockout — 5 consecutive failed logins trigger a 15-minute lockout tracked in DB (`failedLoginAttempts`, `lockedUntil`); remaining-attempts feedback on each failure
+- Rate limiting — global 200 req/min via `@fastify/rate-limit`; auth credential endpoints throttled to 10 req/min per IP
+- `@fastify/helmet` — HTTP security headers with CSP disabled for Angular inline scripts
+- `GET /health` — public liveness endpoint; pings DB with `SELECT 1`; returns 503 on DB failure
+- Expired token cleanup cron — daily midnight job purges expired `RefreshToken` rows; logged with delete count
+- Auth event logging — structured log lines for `[auth:login]`, `[auth:login:fail]`, `[auth:lockout]`, `[auth:logout]`
+- Roles system — `@Roles()` decorator + `RolesGuard` (per-controller, not global); `UserRole` enum: ADMIN / STAFF
+- User management module — `GET/POST /users`, `PATCH /users/:id/role`, `POST /users/:id/unlock`, `POST /users/:id/reset-password`, `DELETE /users/:id`; admin-only; no self-delete
+- Seed admin user — username `admin`, role `ADMIN`; password meets 15-char complexity policy
+- Angular auth layer — `AuthService` (signal-based, token in `sessionStorage`), `authInterceptor` (adds Bearer, retries with refresh on 401), `authGuard`, `adminGuard`
+- Login page (`/login`) — two-step form: credentials then optional TOTP code; redirects to `/admin` on success
+- Logged-in user in navbar — username and role badge (blue ADMIN / grey STAFF); "Users" nav link visible to admins
+- User management page (`/admin/users`) — table with role toggle, unlock, inline password reset, delete with confirm
+
+### Changed
+- Removed public registration endpoint — system is invite-only; users created by admins via `POST /users`
+- All audit log `changedBy` fields now use JWT username from request context instead of hardcoded `"system"` / `"admin"`
+
+### Fixed
+- PDFKit constructor error — changed all three PDF services to `import PDFDocument from "pdfkit"` (direct default import with `allowSyntheticDefaultImports`); eliminates tsc error
+- Upgraded Angular to 21, all NestJS packages to 11.1.23, Prisma to 6.19.3, Fastify to 5.8.5; all `@fastify/*` plugins updated to match Fastify 5 peer requirements
+
 - Agreed rate contracts module — `AgreedRateContract` model; `GET/POST /contracts`, `PUT/DELETE /contracts/:id`; filter by vendor, item, status; validity window with ACTIVE/EXPIRED/CANCELLED status; HSN code and GST rate per contract; frontend at `/contracts` with inline create form and cancel/delete actions
 - GST per-item handling — `hsnCode` and `gstRate` fields on `QuotationLineItem`, `ProcurementItem`, `SourcingQuoteItem`, `AgreedRateContract`; per-row GST breakdown (subtotal, GST amount, total incl. GST) in quotation form; grand totals row showing Subtotal / Total GST / Grand Total
 - HSN code lookup endpoint — `GET /quotations/hsn-lookup?code=` resolves HSN code to applicable GST rate using 8→6→4 digit prefix matching against a static HSN→rate map; auto-fills GST % in quotation form on HSN blur

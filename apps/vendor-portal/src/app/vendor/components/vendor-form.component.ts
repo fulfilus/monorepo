@@ -145,7 +145,7 @@ import { VendorService } from "../services/vendor.service";
           {{ isListening ? 'Stop Listening' : 'Voice Input' }}
         </button>
         <span *ngIf="isListening" class="listening-indicator">Listening for "{{ voiceTargetField === 'auto' ? 'any field' : voiceTargetField }}"...</span>
-        <small *ngIf="voiceLastFilled" style="color:#16a34a;">Filled: {{ voiceLastFilled }}</small>
+        <small *ngIf="voiceLastFilled" style="color:var(--green);">Filled: {{ voiceLastFilled }}</small>
         <small *ngIf="voiceError" class="error">{{ voiceError }}</small>
       </section>
 

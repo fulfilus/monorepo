@@ -1,7 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
-import * as PDFDocumentLib from "pdfkit";
-const PDFDocument = (PDFDocumentLib as unknown as { default: typeof PDFDocumentLib }).default ?? PDFDocumentLib;
+import PDFDocument from "pdfkit";
 import { PrismaService } from "../common/prisma.service";
 import { CreateSourcingQuoteDto, UpdateSourcingQuoteDto, UpdateSourcingStatusDto } from "./sourcing.dto";
 
@@ -10,7 +9,7 @@ export interface PriceSuggestion {
   vendorName: string;
   price: number;
   unit: string | null;
-  source: "PRICE_LIST" | "PROCUREMENT_BID";
+  source: "PRICE_LIST" | "PROCUREMENT_BID" | "AGREED_RATE";
   date: string;
 }
 
@@ -294,10 +293,39 @@ export class SourcingService {
         }
       }
 
-      // Deduplicate: keep lowest price per vendor
+      // Agreed rate contracts (ACTIVE, not expired)
+      const now = new Date();
+      const contracts = await this.prisma.agreedRateContract.findMany({
+        where: {
+          itemName: { contains: name, mode: "insensitive" },
+          status: "ACTIVE",
+          validFrom: { lte: now },
+          OR: [{ validUntil: null }, { validUntil: { gte: now } }],
+        },
+        include: { vendor: { select: { id: true, shopName: true } } },
+        orderBy: { unitPrice: "asc" },
+      });
+
+      for (const c of contracts) {
+        suggestions.push({
+          vendorId: c.vendor.id,
+          vendorName: c.vendor.shopName,
+          price: c.unitPrice,
+          unit: c.unit ?? null,
+          source: "AGREED_RATE",
+          date: c.validFrom.toISOString(),
+        });
+      }
+
+      // Deduplicate: prefer AGREED_RATE, then lowest price per vendor
       const best: Record<string, PriceSuggestion> = {};
       for (const s of suggestions) {
-        if (!best[s.vendorId] || s.price < best[s.vendorId].price) best[s.vendorId] = s;
+        const existing = best[s.vendorId];
+        if (!existing) { best[s.vendorId] = s; continue; }
+        const contractWins = s.source === "AGREED_RATE" && existing.source !== "AGREED_RATE";
+        const cheaperNonContract = s.source !== "AGREED_RATE" && existing.source !== "AGREED_RATE" && s.price < existing.price;
+        const cheaperContract = s.source === "AGREED_RATE" && existing.source === "AGREED_RATE" && s.price < existing.price;
+        if (contractWins || cheaperNonContract || cheaperContract) best[s.vendorId] = s;
       }
       results[name] = Object.values(best).sort((a, b) => a.price - b.price);
     }
@@ -433,5 +461,117 @@ export class SourcingService {
     doc.y += 8;
     const margin = totalCost > 0 ? ((totalSell - totalCost) / totalCost * 100).toFixed(1) : "0";
     doc.fontSize(9).fillColor(green).text(`Margin: ₹${(totalSell - totalCost).toFixed(2)} (${margin}%)`, { align: "right" });
+  }
+
+  async createInvoice(quoteId: string, dueAt?: string) {
+    const quote = await this.findOne(quoteId);
+    if (!["ACCEPTED", "SENT"].includes(quote.status)) {
+      throw new BadRequestException("Invoice can only be generated for ACCEPTED or SENT quotes");
+    }
+    const existing = await this.prisma.sourcingInvoice.findUnique({ where: { quoteId } });
+    if (existing) return existing;
+
+    const ym = new Date().toISOString().substring(0, 7).replace("-", "");
+    const prefix = `INV-${ym}-`;
+    const last = await this.prisma.sourcingInvoice.findFirst({
+      where: { invoiceNumber: { startsWith: prefix } },
+      orderBy: { invoiceNumber: "desc" },
+      select: { invoiceNumber: true },
+    });
+    const seq = last ? parseInt(last.invoiceNumber.replace(prefix, ""), 10) + 1 : 1;
+    const invoiceNumber = `${prefix}${String(seq).padStart(4, "0")}`;
+
+    return this.prisma.sourcingInvoice.create({
+      data: {
+        quoteId,
+        invoiceNumber,
+        dueAt: dueAt ? new Date(dueAt) : undefined,
+      },
+    });
+  }
+
+  async getInvoice(quoteId: string) {
+    const inv = await this.prisma.sourcingInvoice.findUnique({ where: { quoteId } });
+    if (!inv) throw new NotFoundException("Invoice not found for this quote");
+    return inv;
+  }
+
+  async generateInvoicePdf(quoteId: string): Promise<Buffer> {
+    const quote = await this.findOne(quoteId);
+    const invoice = await this.getInvoice(quoteId);
+    return new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ margin: 50, size: "A4" });
+      const chunks: Buffer[] = [];
+      doc.on("data", (c: Buffer) => chunks.push(c));
+      doc.on("end", () => resolve(Buffer.concat(chunks)));
+      doc.on("error", reject);
+      this.buildInvoicePdf(doc, quote, invoice);
+      doc.end();
+    });
+  }
+
+  private buildInvoicePdf(
+    doc: PDFKit.PDFDocument,
+    q: Awaited<ReturnType<SourcingService["findOne"]>>,
+    inv: { invoiceNumber: string; issuedAt: Date; dueAt: Date | null },
+  ) {
+    const blue = "#1d4ed8"; const grey = "#6b7280"; const black = "#111827";
+
+    doc.fontSize(22).fillColor(blue).text("FULFILUS", 50, 50);
+    doc.fontSize(9).fillColor(grey).text("Vendor Intelligence Platform", 50, 76);
+    doc.fontSize(9).fillColor(black).text(`Invoice: ${inv.invoiceNumber}`, 400, 50, { align: "right" });
+    doc.fontSize(9).fillColor(black).text(`Issued: ${inv.issuedAt.toLocaleDateString("en-IN")}`, 400, 64, { align: "right" });
+    if (inv.dueAt) doc.text(`Due: ${inv.dueAt.toLocaleDateString("en-IN")}`, 400, 78, { align: "right" });
+    doc.moveTo(50, 95).lineTo(545, 95).strokeColor("#d1d5db").stroke();
+
+    doc.y = 110;
+    doc.fontSize(14).fillColor(blue).text("TAX INVOICE", { align: "center" });
+    doc.y = 135; doc.fontSize(11).fillColor(black).text(q.title, { align: "center" });
+
+    doc.y = 165;
+    if (q.customerName) { doc.fontSize(10).fillColor(grey).text("BILL TO"); doc.fontSize(11).fillColor(black).text(q.customerName); }
+    if (q.customer?.companyName) doc.fontSize(10).fillColor(black).text(q.customer.companyName);
+    if (q.customerAddress) doc.fontSize(9).fillColor(grey).text(q.customerAddress);
+    if (q.customerPhone) doc.fontSize(9).text(`Phone: ${q.customerPhone}`);
+    if (q.customerGst) doc.fontSize(9).text(`GSTIN: ${q.customerGst}`);
+
+    doc.y = Math.max(doc.y + 10, 240);
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor("#d1d5db").stroke(); doc.y += 8;
+
+    const cols = { no: 50, item: 70, qty: 325, unit: 375, price: 415, gst: 455, total: 490 };
+    doc.fontSize(9).fillColor(grey);
+    doc.text("#", cols.no, doc.y); doc.text("Item / Description", cols.item, doc.y);
+    doc.text("Qty", cols.qty, doc.y); doc.text("Unit", cols.unit, doc.y);
+    doc.text("Rate", cols.price, doc.y); doc.text("GST%", cols.gst, doc.y); doc.text("Amount", cols.total, doc.y);
+    doc.y += 4; doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor("#e5e7eb").stroke(); doc.y += 6;
+
+    let subTotal = 0; let totalGst = 0;
+    q.items.forEach((item, i) => {
+      const price = item.sellingPrice ?? 0;
+      const qty = item.quantity ?? 1;
+      const gstRate = item.gstRate ?? 0;
+      const lineAmt = price * qty;
+      const gstAmt = lineAmt * gstRate / 100;
+      subTotal += lineAmt; totalGst += gstAmt;
+      doc.fontSize(9).fillColor(black);
+      doc.text(String(i + 1), cols.no, doc.y);
+      doc.text(item.itemName + (item.description ? `\n${item.description}` : ""), cols.item, doc.y, { width: 250 });
+      const rowH = item.description ? 24 : 14;
+      doc.text(qty % 1 === 0 ? String(qty) : qty.toFixed(2), cols.qty, doc.y);
+      doc.text(item.unit ?? "", cols.unit, doc.y);
+      doc.text(price > 0 ? `₹${price.toFixed(2)}` : "—", cols.price, doc.y);
+      doc.text(gstRate > 0 ? `${gstRate}%` : "—", cols.gst, doc.y);
+      doc.text(lineAmt > 0 ? `₹${lineAmt.toFixed(2)}` : "—", cols.total, doc.y);
+      doc.y += rowH;
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor("#f3f4f6").stroke(); doc.y += 4;
+    });
+
+    doc.y += 6;
+    doc.fontSize(9).fillColor(grey).text(`Subtotal: ₹${subTotal.toFixed(2)}`, { align: "right" });
+    if (totalGst > 0) { doc.y += 4; doc.text(`GST: ₹${totalGst.toFixed(2)}`, { align: "right" }); }
+    doc.y += 4;
+    doc.fontSize(12).fillColor(blue).text(`Total: ₹${(subTotal + totalGst).toFixed(2)}`, { align: "right" });
+    if (q.notes) { doc.y += 16; doc.fontSize(9).fillColor(grey).text(`Notes: ${q.notes}`); }
+    doc.y += 20; doc.fontSize(8).fillColor(grey).text("This is a computer-generated invoice.", { align: "center" });
   }
 }

@@ -30,138 +30,124 @@ interface NewContractForm {
     <div class="admin-page">
       <div class="admin-header">
         <h2>Agreed Rate Contracts</h2>
+        <div class="admin-header-actions">
+          <button (click)="showForm = !showForm" class="btn-primary">+ New Contract</button>
+        </div>
       </div>
 
-      <!-- Filters -->
-      <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center;">
-        <input [(ngModel)]="filterItem" (keyup.enter)="load()" placeholder="Search item..."
-               style="padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; width:200px;" />
-        <select [(ngModel)]="filterStatus" (change)="load()"
-                style="padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px;">
+      <div class="filters">
+        <input [(ngModel)]="filterItem" (keyup.enter)="load()" placeholder="Search item..." />
+        <select [(ngModel)]="filterStatus" (change)="load()">
           <option value="">All statuses</option>
           <option value="ACTIVE">Active</option>
           <option value="EXPIRED">Expired</option>
           <option value="CANCELLED">Cancelled</option>
         </select>
-        <button (click)="load()" style="padding:6px 14px; background:#2563eb; color:#fff; border:none; border-radius:6px; font-size:13px; cursor:pointer;">Search</button>
-        <button (click)="showForm = !showForm"
-                style="padding:6px 14px; background:#16a34a; color:#fff; border:none; border-radius:6px; font-size:13px; cursor:pointer; margin-left:auto;">
-          + New Contract
-        </button>
+        <button (click)="load()" class="btn-secondary">Search</button>
       </div>
 
-      <!-- New contract form -->
-      <div *ngIf="showForm" style="padding:16px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; margin-bottom:20px;">
-        <h3 style="font-size:13px; font-weight:600; margin-bottom:14px;">New Rate Contract</h3>
-        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin-bottom:12px;">
-          <label style="font-size:12px; font-weight:500;">Vendor *
-            <select [(ngModel)]="form.vendorId" style="width:100%; margin-top:4px; padding:6px 8px; border:1px solid #d1d5db; border-radius:5px; font-size:13px;">
-              <option value="">Select vendor...</option>
-              <option *ngFor="let v of vendors" [value]="v.id">{{ v.shopName }}</option>
-            </select>
-          </label>
-          <label style="font-size:12px; font-weight:500;">Item Name *
-            <input [(ngModel)]="form.itemName" style="width:100%; margin-top:4px; padding:6px 8px; border:1px solid #d1d5db; border-radius:5px; font-size:13px;" placeholder="e.g. Rice 25kg" />
-          </label>
-          <label style="font-size:12px; font-weight:500;">Unit Price (₹) *
-            <input [(ngModel)]="form.unitPrice" type="number" min="0" step="0.01" style="width:100%; margin-top:4px; padding:6px 8px; border:1px solid #d1d5db; border-radius:5px; font-size:13px;" />
-          </label>
-          <label style="font-size:12px; font-weight:500;">Unit
-            <input [(ngModel)]="form.unit" style="width:100%; margin-top:4px; padding:6px 8px; border:1px solid #d1d5db; border-radius:5px; font-size:13px;" placeholder="kg, pcs..." />
-          </label>
-          <label style="font-size:12px; font-weight:500;">Min Qty
-            <input [(ngModel)]="form.minQty" type="number" min="0" style="width:100%; margin-top:4px; padding:6px 8px; border:1px solid #d1d5db; border-radius:5px; font-size:13px;" />
-          </label>
-          <label style="font-size:12px; font-weight:500;">Tolerance %
-            <input [(ngModel)]="form.tolerancePct" type="number" min="0" max="100" style="width:100%; margin-top:4px; padding:6px 8px; border:1px solid #d1d5db; border-radius:5px; font-size:13px;" />
-          </label>
-          <label style="font-size:12px; font-weight:500;">HSN Code
-            <input [(ngModel)]="form.hsnCode" style="width:100%; margin-top:4px; padding:6px 8px; border:1px solid #d1d5db; border-radius:5px; font-size:13px;" placeholder="e.g. 7318" />
-          </label>
-          <label style="font-size:12px; font-weight:500;">GST %
-            <select [(ngModel)]="form.gstRate" style="width:100%; margin-top:4px; padding:6px 8px; border:1px solid #d1d5db; border-radius:5px; font-size:13px;">
-              <option [ngValue]="null">— Select —</option>
-              <option *ngFor="let s of gstSlabs" [ngValue]="s">{{ s }}%</option>
-            </select>
-          </label>
-          <label style="font-size:12px; font-weight:500;">Valid From
-            <input [(ngModel)]="form.validFrom" type="date" style="width:100%; margin-top:4px; padding:6px 8px; border:1px solid #d1d5db; border-radius:5px; font-size:13px;" />
-          </label>
-          <label style="font-size:12px; font-weight:500;">Valid Until
-            <input [(ngModel)]="form.validUntil" type="date" style="width:100%; margin-top:4px; padding:6px 8px; border:1px solid #d1d5db; border-radius:5px; font-size:13px;" />
-          </label>
-          <label style="font-size:12px; font-weight:500; grid-column:1/-1;">Notes
-            <input [(ngModel)]="form.notes" style="width:100%; margin-top:4px; padding:6px 8px; border:1px solid #d1d5db; border-radius:5px; font-size:13px;" placeholder="Optional notes..." />
-          </label>
+      <div *ngIf="showForm" class="panel" style="margin-bottom:20px;">
+        <div class="panel-header">
+          <h3>New Rate Contract</h3>
+          <button (click)="showForm = false; formError = ''" class="btn-ghost">Cancel</button>
         </div>
-        <div style="display:flex; gap:8px;">
-          <button (click)="create()" [disabled]="saving || !form.vendorId || !form.itemName || form.unitPrice == null"
-                  style="padding:7px 18px; background:#2563eb; color:#fff; border:none; border-radius:6px; font-size:13px; cursor:pointer;">
-            {{ saving ? 'Saving...' : 'Create Contract' }}
-          </button>
-          <button (click)="showForm = false; formError = ''"
-                  style="padding:7px 14px; background:none; border:1px solid #d1d5db; border-radius:6px; font-size:13px; cursor:pointer;">
-            Cancel
-          </button>
+        <div class="panel-body">
+          <div class="contract-form-grid">
+            <label class="compact-label">Vendor *
+              <select [(ngModel)]="form.vendorId" class="inline-input">
+                <option value="">Select vendor...</option>
+                <option *ngFor="let v of vendors" [value]="v.id">{{ v.shopName }}</option>
+              </select>
+            </label>
+            <label class="compact-label">Item Name *
+              <input [(ngModel)]="form.itemName" class="inline-input" placeholder="e.g. Rice 25kg" />
+            </label>
+            <label class="compact-label">Unit Price (₹) *
+              <input [(ngModel)]="form.unitPrice" type="number" min="0" step="0.01" class="inline-input" />
+            </label>
+            <label class="compact-label">Unit
+              <input [(ngModel)]="form.unit" class="inline-input" placeholder="kg, pcs..." />
+            </label>
+            <label class="compact-label">Min Qty
+              <input [(ngModel)]="form.minQty" type="number" min="0" class="inline-input" />
+            </label>
+            <label class="compact-label">Tolerance %
+              <input [(ngModel)]="form.tolerancePct" type="number" min="0" max="100" class="inline-input" />
+            </label>
+            <label class="compact-label">HSN Code
+              <input [(ngModel)]="form.hsnCode" class="inline-input" placeholder="e.g. 7318" />
+            </label>
+            <label class="compact-label">GST %
+              <select [(ngModel)]="form.gstRate" class="inline-input">
+                <option [ngValue]="null">— Select —</option>
+                <option *ngFor="let s of gstSlabs" [ngValue]="s">{{ s }}%</option>
+              </select>
+            </label>
+            <label class="compact-label">Valid From
+              <input [(ngModel)]="form.validFrom" type="date" class="inline-input" />
+            </label>
+            <label class="compact-label">Valid Until
+              <input [(ngModel)]="form.validUntil" type="date" class="inline-input" />
+            </label>
+            <label class="compact-label" style="grid-column:1/-1;">Notes
+              <input [(ngModel)]="form.notes" class="inline-input" placeholder="Optional notes..." />
+            </label>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:14px;">
+            <button (click)="create()" [disabled]="saving || !form.vendorId || !form.itemName || form.unitPrice == null" class="btn-primary">
+              {{ saving ? 'Saving...' : 'Create Contract' }}
+            </button>
+          </div>
+          <div *ngIf="formError" class="alert alert-error" style="margin-top:10px;">{{ formError }}</div>
         </div>
-        <div *ngIf="formError" class="error" style="margin-top:6px; font-size:12px;">{{ formError }}</div>
       </div>
 
-      <!-- Contracts table -->
       <div *ngIf="loading" class="empty-state">Loading...</div>
-
       <div *ngIf="!loading && contracts.length === 0" class="empty-state">
         No contracts found. Create one to lock negotiated rates with vendors.
       </div>
 
-      <div *ngIf="!loading && contracts.length > 0" style="overflow-x:auto;">
-        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+      <div class="table-wrapper" *ngIf="!loading && contracts.length > 0">
+        <table>
           <thead>
-            <tr style="background:#f3f4f6;">
-              <th style="padding:8px 10px; text-align:left;">Vendor</th>
-              <th style="padding:8px 10px; text-align:left;">Item</th>
-              <th style="padding:8px 10px; text-align:right;">Rate</th>
-              <th style="padding:8px 10px; text-align:left;">HSN / GST</th>
-              <th style="padding:8px 10px; text-align:right;">Tolerance</th>
-              <th style="padding:8px 10px; text-align:left;">Validity</th>
-              <th style="padding:8px 10px; text-align:center;">Status</th>
-              <th style="padding:8px 10px;"></th>
+            <tr>
+              <th>Vendor</th>
+              <th>Item</th>
+              <th style="text-align:right;">Rate</th>
+              <th>HSN / GST</th>
+              <th style="text-align:right;">Tolerance</th>
+              <th>Validity</th>
+              <th style="text-align:center;">Status</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let c of contracts" style="border-bottom:1px solid #f3f4f6;"
-                [style.opacity]="c.status !== 'ACTIVE' ? '0.6' : '1'">
-              <td style="padding:8px 10px; font-weight:500;">{{ c.vendor.shopName }}</td>
-              <td style="padding:8px 10px;">
+            <tr *ngFor="let c of contracts" [style.opacity]="c.status !== 'ACTIVE' ? '0.65' : '1'">
+              <td><strong>{{ c.vendor.shopName }}</strong></td>
+              <td>
                 {{ c.itemName }}
-                <span *ngIf="c.unit" style="font-size:11px; color:#9ca3af;"> / {{ c.unit }}</span>
-                <span *ngIf="c.minQty" style="font-size:11px; color:#6b7280; display:block;">Min: {{ c.minQty }}</span>
+                <span *ngIf="c.unit" style="color:var(--text-faint);"> / {{ c.unit }}</span>
+                <span *ngIf="c.minQty" style="color:var(--text-muted); display:block; font-size:11px;">Min: {{ c.minQty }}</span>
               </td>
-              <td style="padding:8px 10px; text-align:right; font-weight:600;">₹{{ c.unitPrice }}</td>
-              <td style="padding:8px 10px; font-size:12px; color:#6b7280;">
+              <td style="text-align:right; font-weight:700;">₹{{ c.unitPrice }}</td>
+              <td style="color:var(--text-muted); font-size:12px;">
                 <span *ngIf="c.hsnCode">{{ c.hsnCode }}</span>
                 <span *ngIf="c.hsnCode && c.gstRate"> / </span>
-                <span *ngIf="c.gstRate != null" style="color:#d97706;">{{ c.gstRate }}% GST</span>
+                <span *ngIf="c.gstRate != null" style="color:var(--amber);">{{ c.gstRate }}% GST</span>
                 <span *ngIf="!c.hsnCode && c.gstRate == null">—</span>
               </td>
-              <td style="padding:8px 10px; text-align:right; color:#6b7280;">{{ c.tolerancePct }}%</td>
-              <td style="padding:8px 10px; font-size:12px; color:#6b7280;">
+              <td style="text-align:right; color:var(--text-muted);">{{ c.tolerancePct }}%</td>
+              <td style="font-size:12px; color:var(--text-muted);">
                 {{ c.validFrom | date:'dd MMM yy' }}
                 <span *ngIf="c.validUntil"> – {{ c.validUntil | date:'dd MMM yy' }}</span>
                 <span *ngIf="!c.validUntil"> (no expiry)</span>
               </td>
-              <td style="padding:8px 10px; text-align:center;">
+              <td style="text-align:center;">
                 <span class="badge" [ngClass]="c.status.toLowerCase()">{{ c.status }}</span>
               </td>
-              <td style="padding:8px 10px; text-align:right; white-space:nowrap;">
-                <button *ngIf="c.status === 'ACTIVE'" (click)="cancel(c)"
-                        style="font-size:12px; padding:3px 8px; background:none; border:1px solid #d1d5db; border-radius:4px; cursor:pointer; color:#374151;">
-                  Cancel
-                </button>
-                <button (click)="remove(c)"
-                        style="font-size:12px; padding:3px 8px; background:none; border:1px solid #dc2626; color:#dc2626; border-radius:4px; cursor:pointer; margin-left:4px;">
-                  Delete
-                </button>
+              <td style="white-space:nowrap;">
+                <button *ngIf="c.status === 'ACTIVE'" (click)="cancel(c)" class="btn-ghost" style="font-size:12px; padding:4px 8px;">Cancel</button>
+                <button (click)="remove(c)" class="btn-link" style="color:var(--red); font-size:12px;">Delete</button>
               </td>
             </tr>
           </tbody>
@@ -169,11 +155,6 @@ interface NewContractForm {
       </div>
     </div>
   `,
-  styles: [`
-    .badge.active { background:#d1fae5; color:#065f46; }
-    .badge.expired { background:#fef3c7; color:#92400e; }
-    .badge.cancelled { background:#fee2e2; color:#b91c1c; }
-  `],
 })
 export class ContractsListComponent implements OnInit {
   contracts: AgreedRateContractDto[] = [];

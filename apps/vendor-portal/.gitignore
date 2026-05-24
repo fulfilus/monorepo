@@ -4,3 +4,6 @@ node_modules/
 
 # Contains API keys — never commit
 src/environments/environment.ts
+
+# Angular build cache
+.angular/cache/

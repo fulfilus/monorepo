@@ -3,7 +3,7 @@ import { Component, OnDestroy, OnInit } from "@angular/core";
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from "@angular/forms";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { CustomerWithQuotesDto } from "@fulfilus/shared";
-import { Subject, takeUntil } from "rxjs";
+import { EMPTY, Subject, switchMap, takeUntil } from "rxjs";
 import { CustomerService } from "../services/customer.service";
 
 @Component({
@@ -11,14 +11,13 @@ import { CustomerService } from "../services/customer.service";
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterLink],
   template: `
-    <div class="admin-page" style="max-width:700px;">
+    <div class="admin-page" style="max-width:780px;">
       <div class="admin-header">
         <div>
-          <a routerLink="/customers" class="back-link" style="font-size:13px; color:#6b7280; text-decoration:none;">← Customers</a>
+          <a routerLink="/customers" class="back-link">Customers</a>
           <h2>{{ customerId ? 'Edit Customer' : 'New Customer' }}</h2>
         </div>
-        <button *ngIf="customerId" type="button" class="btn-secondary"
-                style="border-color:#dc2626; color:#dc2626; background:#fff;"
+        <button *ngIf="customerId" type="button" class="btn-danger"
                 (click)="deleteCustomer()" [disabled]="deleting">
           {{ deleting ? 'Deleting...' : 'Delete' }}
         </button>
@@ -61,26 +60,28 @@ import { CustomerService } from "../services/customer.service";
         <!-- Quote history -->
         <section *ngIf="quotes.length">
           <h3>Quote History</h3>
-          <table style="width:100%; border-collapse:collapse; font-size:13px;">
-            <thead>
-              <tr style="background:#f3f4f6;">
-                <th style="padding:8px; text-align:left;">Ref</th>
-                <th style="padding:8px; text-align:left;">Title</th>
-                <th style="padding:8px; text-align:left;">Status</th>
-                <th style="padding:8px; text-align:left;">Date</th>
-                <th style="padding:8px;"></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let q of quotes" style="border-bottom:1px solid #f3f4f6;">
-                <td style="padding:8px; font-size:11px; color:#6b7280;">{{ q.referenceNumber }}</td>
-                <td style="padding:8px;">{{ q.title }}</td>
-                <td style="padding:8px;"><span class="badge" [ngClass]="q.status.toLowerCase()">{{ q.status }}</span></td>
-                <td style="padding:8px; font-size:12px; color:#9ca3af;">{{ q.createdAt | date:'dd MMM yy' }}</td>
-                <td style="padding:8px;"><a [routerLink]="['/sourcing', q.id]" class="btn-link">Open</a></td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Ref</th>
+                  <th>Title</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let q of quotes">
+                  <td style="font-size:11px; color:var(--text-muted);">{{ q.referenceNumber }}</td>
+                  <td>{{ q.title }}</td>
+                  <td><span class="badge" [ngClass]="q.status.toLowerCase()">{{ q.status }}</span></td>
+                  <td style="font-size:12px; color:var(--text-faint);">{{ q.createdAt | date:'dd MMM yy' }}</td>
+                  <td><a [routerLink]="['/sourcing', q.id]" class="btn-link">Open</a></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </section>
 
         <div class="actions">
@@ -89,7 +90,7 @@ import { CustomerService } from "../services/customer.service";
           </button>
           <a routerLink="/customers" class="btn-secondary">Cancel</a>
         </div>
-        <div *ngIf="error" style="color:#dc2626; font-size:12px; margin-top:6px;">{{ error }}</div>
+        <div *ngIf="error" class="error" style="margin-top:6px;">{{ error }}</div>
       </form>
     </div>
   `,
@@ -121,23 +122,29 @@ export class CustomerFormComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    this.customerId = this.route.snapshot.paramMap.get("id");
-    if (this.customerId) {
-      this.customerService.getOne(this.customerId).pipe(takeUntil(this.destroy$)).subscribe({
-        next: c => {
-          this.form.patchValue({
-            name: c.name,
-            companyName: c.companyName ?? "",
-            phone: c.phone ?? "",
-            email: c.email ?? "",
-            address: c.address ?? "",
-            gstNumber: c.gstNumber ?? "",
-            notes: c.notes ?? "",
-          });
-          this.quotes = c.quotes;
-        },
-      });
-    }
+    this.route.paramMap.pipe(
+      takeUntil(this.destroy$),
+      switchMap(params => {
+        this.customerId = params.get("id");
+        this.quotes = [];
+        this.form.reset({ name: "", companyName: "", phone: "", email: "", address: "", gstNumber: "", notes: "" });
+        if (!this.customerId) return EMPTY;
+        return this.customerService.getOne(this.customerId);
+      }),
+    ).subscribe({
+      next: c => {
+        this.form.patchValue({
+          name: c.name,
+          companyName: c.companyName ?? "",
+          phone: c.phone ?? "",
+          email: c.email ?? "",
+          address: c.address ?? "",
+          gstNumber: c.gstNumber ?? "",
+          notes: c.notes ?? "",
+        });
+        this.quotes = c.quotes;
+      },
+    });
   }
 
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }

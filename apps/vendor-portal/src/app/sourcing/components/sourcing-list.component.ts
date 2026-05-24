@@ -12,7 +12,7 @@ import { SourcingService } from "../services/sourcing.service";
     <div class="admin-page">
       <div class="admin-header">
         <div>
-          <a routerLink="/vendors" class="back-link">Vendors</a>
+          <a routerLink="/admin" class="back-link">Vendors</a>
           <h2>Sourcing Quotes</h2>
         </div>
         <a routerLink="/sourcing/new" class="btn-secondary">+ New Quote</a>
@@ -37,11 +37,11 @@ import { SourcingService } from "../services/sourcing.service";
           </thead>
           <tbody>
             <tr *ngFor="let q of quotes">
-              <td style="font-size:11px; color:#6b7280; white-space:nowrap;">{{ q.referenceNumber }}</td>
+              <td style="font-size:11px; color:var(--text-muted); white-space:nowrap;">{{ q.referenceNumber }}</td>
               <td><strong>{{ q.title }}</strong></td>
               <td>{{ q.customerName || '—' }}</td>
               <td><span class="badge" [ngClass]="q.status.toLowerCase()">{{ q.status }}</span></td>
-              <td style="text-align:center; color:#9ca3af; font-size:12px;">{{ q.revisionNumber }}</td>
+              <td style="text-align:center; color:var(--text-faint); font-size:12px;">{{ q.revisionNumber }}</td>
               <td>{{ q.items.length }} items</td>
               <td>{{ q.validUntil ? (q.validUntil | date:'dd MMM yy') : '—' }}</td>
               <td style="white-space:nowrap;">{{ q.createdAt | date:'dd MMM yy' }}</td>

@@ -33,11 +33,19 @@ export class InboundService {
     this.anthropic = new Anthropic({ apiKey: process.env["ANTHROPIC_API_KEY"] });
   }
 
+  private static readonly ACCEPTANCE_REGEX = /^\s*(yes|confirm(?:ed)?|ok(?:ay)?|proceed|accepted?|haan|done)\s*[!.]?\s*$/i;
+
   /** Called by the webhook handler for every inbound message */
   async processMessage(waMessageId: string, fromNumber: string, type: "text" | "image", text?: string, imageMediaId?: string): Promise<void> {
     // Idempotent: skip if already processed
     const existing = await this.prisma.inboundMessage.findUnique({ where: { waMessageId } });
     if (existing) return;
+
+    // Check for quote acceptance reply before running extraction
+    if (type === "text" && text && InboundService.ACCEPTANCE_REGEX.test(text)) {
+      const handled = await this.tryAcceptQuote(fromNumber, waMessageId);
+      if (handled) return;
+    }
 
     // Identify customer by phone (normalize: strip spaces, dashes)
     const normalized = fromNumber.replace(/[\s\-().]/g, "");
@@ -93,16 +101,18 @@ export class InboundService {
       const priceMap = await this.sourcingService.lookup(itemNames);
 
       // Build quote items with best available price
+      const unmatched: string[] = [];
       const quoteItems = items.map(item => {
         const suggestions = priceMap[item.itemName] ?? [];
         const best = suggestions[0]; // already sorted lowest first
+        if (!best) unmatched.push(item.itemName);
         return {
           itemName: item.itemName,
           quantity: item.quantity ?? undefined,
           unit: item.unit ?? best?.unit ?? undefined,
           costPrice: best?.price ?? undefined,
           sourceName: best?.vendorName ?? undefined,
-          sourceType: best ? (best.source === "PRICE_LIST" ? "PRICE_LIST" : "PROCUREMENT_BID") : "manual",
+          sourceType: best?.source ?? "manual",
           notes: item.notes ?? undefined,
         };
       });
@@ -133,9 +143,22 @@ export class InboundService {
         data: {
           status: "QUOTED",
           extractedItems: items as object[],
+          unmatchedItems: unmatched as unknown as object[],
           quoteId: quote.id,
         },
       });
+
+      // Send clarification for items we couldn't price
+      if (unmatched.length > 0) {
+        const itemList = unmatched.map(name => `• ${name}`).join("\n");
+        const clarificationMsg =
+          `We received your request but couldn't find prices for the following items:\n\n${itemList}\n\n` +
+          `Could you please provide more details (brand, grade, quantity) or confirm if any alternate products would work?`;
+        await this.whatsappService.sendMessage(fromNumber, clarificationMsg).catch(err => {
+          this.logger.warn(`[inbound] clarification send failed: ${String(err)}`);
+        });
+        this.logger.log(`[inbound] sent clarification for ${unmatched.length} unmatched item(s) to ${fromNumber}`);
+      }
 
       // Run validation
       await this.validationService.validate(quote.id);
@@ -238,9 +261,114 @@ export class InboundService {
   }
 
   async reviewQuote(quoteId: string, action: "APPROVED" | "REJECTED", reviewedBy: string, reviewNotes?: string) {
-    return this.prisma.quoteValidation.update({
+    const validation = await this.prisma.quoteValidation.update({
       where: { quoteId },
       data: { status: action, reviewedBy, reviewNotes, updatedAt: new Date() },
     });
+
+    if (action === "APPROVED") {
+      await this.sendApprovedQuote(quoteId, reviewedBy).catch(err => {
+        this.logger.error(`[inbound] auto-send failed for quoteId=${quoteId}: ${String(err)}`);
+      });
+    }
+
+    return validation;
+  }
+
+  private async tryAcceptQuote(fromNumber: string, waMessageId: string): Promise<boolean> {
+    const normalized = fromNumber.replace(/[\s\-().]/g, "");
+    const quote = await this.prisma.sourcingQuote.findFirst({
+      where: {
+        status: "SENT",
+        OR: [
+          { customerPhone: { contains: normalized.slice(-10) } },
+          { customerPhone: fromNumber },
+        ],
+      },
+      orderBy: { sentAt: "desc" },
+    });
+
+    if (!quote) return false;
+
+    await this.prisma.sourcingQuote.update({
+      where: { id: quote.id },
+      data: { status: "ACCEPTED", acceptedAt: new Date() },
+    });
+
+    // Record this message idempotently
+    await this.prisma.inboundMessage.create({
+      data: {
+        waMessageId,
+        fromNumber,
+        messageType: "text",
+        rawText: "Acceptance reply",
+        status: "QUOTED",
+        quoteId: quote.id,
+      },
+    }).catch(() => {});
+
+    const name = quote.customerName ?? "there";
+    await this.whatsappService.sendMessage(fromNumber,
+      `Thank you ${name}! Your order *${quote.referenceNumber}* has been confirmed. Our team will be in touch shortly for delivery details.`,
+    ).catch(err => {
+      this.logger.warn(`[inbound] acceptance ack failed: ${String(err)}`);
+    });
+
+    this.logger.log(`[inbound] quote ${quote.id} auto-accepted via WhatsApp from ${fromNumber}`);
+    return true;
+  }
+
+  private async sendApprovedQuote(quoteId: string, sentBy: string): Promise<void> {
+    const quote = await this.prisma.sourcingQuote.findUnique({
+      where: { id: quoteId },
+      include: { items: { orderBy: { sortOrder: "asc" } } },
+    });
+    if (!quote) throw new Error(`Quote ${quoteId} not found`);
+
+    const phone = quote.customerPhone;
+    if (!phone) {
+      this.logger.warn(`[inbound] quoteId=${quoteId} has no customerPhone — skipping auto-send`);
+      return;
+    }
+
+    const globalMarkup = quote.globalMarkupPct ?? 15;
+    const lines = quote.items.map(item => {
+      const cost = item.costPrice ?? 0;
+      const sell = item.sellingPrice ?? (cost > 0 ? cost * (1 + globalMarkup / 100) : 0);
+      const qty = item.quantity != null ? `${item.quantity}${item.unit ? " " + item.unit : ""}` : "";
+      const priceStr = sell > 0 ? ` — ₹${sell.toFixed(0)}${qty ? "/" + (item.unit ?? "unit") : ""}` : "";
+      return `• ${item.itemName}${qty ? " (" + qty + ")" : ""}${priceStr}`;
+    });
+
+    const total = quote.items.reduce((sum, item) => {
+      const cost = item.costPrice ?? 0;
+      const sell = item.sellingPrice ?? (cost > 0 ? cost * (1 + globalMarkup / 100) : 0);
+      const qty = item.quantity ?? 1;
+      return sum + sell * qty;
+    }, 0);
+
+    const name = quote.customerName ?? "there";
+    const ref = quote.referenceNumber;
+    const message = [
+      `Hi ${name}! Your quote *${ref}* is ready:`,
+      "",
+      ...lines,
+      ...(total > 0 ? ["", `*Total: ₹${total.toFixed(0)}*`] : []),
+      "",
+      "Reply to confirm or ask any questions.",
+    ].join("\n");
+
+    await this.whatsappService.sendMessage(phone, message);
+
+    await this.prisma.sourcingQuoteSend.create({
+      data: { quoteId, method: "WHATSAPP", sentBy, notes: "Auto-sent on inbox approval" },
+    });
+
+    await this.prisma.sourcingQuote.update({
+      where: { id: quoteId },
+      data: { status: "SENT", sentAt: new Date() },
+    });
+
+    this.logger.log(`[inbound] auto-sent quoteId=${quoteId} to ${phone}`);
   }
 }

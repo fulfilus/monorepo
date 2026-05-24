@@ -54,4 +54,16 @@ export class SourcingService {
   downloadPdf(id: string, type: "customer" | "internal"): Observable<Blob> {
     return this.http.get(`${this.base}/${id}/pdf/${type}`, { responseType: "blob" });
   }
+
+  createInvoice(id: string, dueAt?: string): Observable<{ id: string; invoiceNumber: string; issuedAt: string; dueAt: string | null }> {
+    return this.http.post<{ id: string; invoiceNumber: string; issuedAt: string; dueAt: string | null }>(`${this.base}/${id}/invoice`, dueAt ? { dueAt } : {});
+  }
+
+  getInvoice(id: string): Observable<{ id: string; invoiceNumber: string; issuedAt: string; dueAt: string | null }> {
+    return this.http.get<{ id: string; invoiceNumber: string; issuedAt: string; dueAt: string | null }>(`${this.base}/${id}/invoice`);
+  }
+
+  downloadInvoicePdf(id: string): Observable<Blob> {
+    return this.http.get(`${this.base}/${id}/invoice/pdf`, { responseType: "blob" });
+  }
 }

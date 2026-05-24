@@ -71,4 +71,27 @@ export class SourcingController {
     res.header("Content-Disposition", `attachment; filename="${filename}"`);
     res.send(buf);
   }
+
+  @Post(":id/invoice")
+  @HttpCode(HttpStatus.CREATED)
+  createInvoice(
+    @Param("id") id: string,
+    @Body() body: { dueAt?: string },
+  ) {
+    return this.sourcingService.createInvoice(id, body.dueAt);
+  }
+
+  @Get(":id/invoice")
+  getInvoice(@Param("id") id: string) {
+    return this.sourcingService.getInvoice(id);
+  }
+
+  @Get(":id/invoice/pdf")
+  async downloadInvoicePdf(@Param("id") id: string, @Res() res: FastifyReply) {
+    const inv = await this.sourcingService.getInvoice(id);
+    const buf = await this.sourcingService.generateInvoicePdf(id);
+    res.header("Content-Type", "application/pdf");
+    res.header("Content-Disposition", `attachment; filename="INV-${inv.invoiceNumber}.pdf"`);
+    res.send(buf);
+  }
 }

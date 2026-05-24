@@ -46,7 +46,7 @@ import { QuotationService } from "../services/quotation.service";
               <td><span class="chip">{{ formatType(q.type) }}</span></td>
               <td>{{ q.title }}</td>
               <td>
-                <span class="badge" [class.contacted]="q.status === 'ACCEPTED'">{{ q.status }}</span>
+                <span class="badge" [ngClass]="q.status.toLowerCase()">{{ q.status }}</span>
               </td>
               <td>{{ q.totalAmount != null ? ('₹' + q.totalAmount.toFixed(2)) : '—' }}</td>
               <td>{{ q.validUntil ? (q.validUntil | date:'dd MMM yy') : '—' }}</td>
@@ -58,7 +58,7 @@ import { QuotationService } from "../services/quotation.service";
                   *ngIf="q.status === QuotationStatus.DRAFT"
                   (click)="delete(q.id)"
                   class="btn-link"
-                  style="color:#dc2626;background:none;border:none;cursor:pointer;padding:0;">
+                  style="color:var(--red);">
                   Delete
                 </button>
               </td>

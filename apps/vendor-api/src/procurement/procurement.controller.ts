@@ -1,7 +1,7 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, NotFoundException, Param, ParseIntPipe, Post, Put, Query, Res, UsePipes, ValidationPipe } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, NotFoundException, Param, ParseIntPipe, Patch, Post, Put, Query, Res, UsePipes, ValidationPipe } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { FastifyReply } from "fastify";
-import { AddVendorBidDto, AwardDto, CreateProcurementDto, CreateTemplateDto, UpdateBidDto, UseTemplateDto } from "./procurement.dto";
+import { AddVendorBidDto, AwardDto, CreateProcurementDto, CreateTemplateDto, DeliveryUpdateDto, UpdateBidDto, UseTemplateDto } from "./procurement.dto";
 import { PoPdfService } from "./po-pdf.service";
 import { ProcurementService } from "./procurement.service";
 
@@ -93,6 +93,11 @@ export class ProcurementController {
   @Put(":id/vendors/:bidId")
   updateBid(@Param("id") id: string, @Param("bidId") bidId: string, @Body() dto: UpdateBidDto) {
     return this.procurementService.updateBid(id, bidId, dto);
+  }
+
+  @Patch(":id/vendors/:bidId/delivery")
+  updateDelivery(@Param("id") id: string, @Param("bidId") bidId: string, @Body() dto: DeliveryUpdateDto) {
+    return this.procurementService.updateBidDelivery(id, bidId, dto);
   }
 
   @Delete(":id/vendors/:bidId")

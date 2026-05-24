@@ -53,5 +53,20 @@
     "target": "http://localhost:3000",
     "secure": false,
     "changeOrigin": true
+  },
+  "/auth": {
+    "target": "http://localhost:3000",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/notifications": {
+    "target": "http://localhost:3000",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/users": {
+    "target": "http://localhost:3000",
+    "secure": false,
+    "changeOrigin": true
   }
 }

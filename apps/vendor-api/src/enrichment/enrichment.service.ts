@@ -9,6 +9,10 @@ import { EnrichmentSource, VendorCategory } from "@fulfilus/shared";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../common/prisma.service";
 import type { EnrichmentResult, PlaceData } from "./enrichment.dto";
+import { JustdialService } from "./justdial.service";
+import type { JustDialSearchResult } from "./justdial.service";
+import { IndiamartService } from "./indiamart.service";
+import type { IndiaMartSearchResult } from "./indiamart.service";
 
 const MODEL_ID = "claude-sonnet-4-6";
 const VENDOR_CATEGORIES = Object.values(VendorCategory) as string[];
@@ -55,13 +59,19 @@ export class EnrichmentService {
   private readonly anthropic: Anthropic;
   private readonly mapsKey = process.env.GOOGLE_MAPS_SERVER_KEY ?? "";
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly justdial: JustdialService,
+    private readonly indiamart: IndiamartService,
+  ) {
     this.anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   }
 
-  async startEnrichmentJob(url: string): Promise<string> {
+  async startEnrichmentJob(url: string, onComplete?: (result: EnrichmentResult) => Promise<void>): Promise<string> {
     const jobId = await this.createJob();
-    this.doEnrich(url, jobId).catch(err => {
+    this.doEnrich(url, jobId).then(result => {
+      if (onComplete) return onComplete(result);
+    }).catch(err => {
       this.logger.error(`[enrich] async job ${jobId} failed: ${String(err)}`);
     });
     return jobId;
@@ -101,9 +111,26 @@ export class EnrichmentService {
       const placeData = await this.fetchPlaceData(placeName, coords);
       this.logger.log(`[enrich] place resolved: "${placeData.name}" (${placeData.placeId})`);
 
-      const result = await this.enrichWithLLM(placeData);
+      // Extract city from address for secondary searches (first comma-delimited segment)
+      const city = placeData.formattedAddress.split(",").slice(-3, -1).join(",").trim() || placeName;
+
+      // Run JustDial + IndiaMart in parallel — failures suppressed
+      const [jdResult, imResult] = await Promise.allSettled([
+        this.justdial.searchAndEnrich(placeData.name, city),
+        this.indiamart.searchAndEnrich(placeData.name, city),
+      ]);
+
+      const jd = jdResult.status === "fulfilled" ? jdResult.value : null;
+      const im = imResult.status === "fulfilled" ? imResult.value : null;
+
+      if (jdResult.status === "rejected") this.logger.warn(`[enrich] JustDial failed: ${String(jdResult.reason)}`);
+      if (imResult.status === "rejected") this.logger.warn(`[enrich] IndiaMart failed: ${String(imResult.reason)}`);
+
+      const mapsResult = await this.enrichWithLLM(placeData);
+      const merged = await this.mergeWithLLM(mapsResult, jd, im, placeData);
+
       const whatsappNumber = placeData.phoneNumber ? this.normalizePhone(placeData.phoneNumber) : undefined;
-      const finalResult = { ...result, ...(whatsappNumber ? { whatsappNumber } : {}) };
+      const finalResult = { ...merged, ...(whatsappNumber ? { whatsappNumber } : {}) };
       await this.completeJob(jobId, finalResult, placeData);
 
       return { ...finalResult, jobId };
@@ -370,6 +397,118 @@ Business Status: ${place.businessStatus ?? "N/A"}`;
       placeId: place.placeId,
       enrichedAt: new Date().toISOString(),
       modelUsed: MODEL_ID,
+    };
+  }
+
+  private async mergeWithLLM(
+    mapsResult: Omit<EnrichmentResult, "jobId">,
+    jd: JustDialSearchResult | null,
+    im: IndiaMartSearchResult | null,
+    place: PlaceData,
+  ): Promise<Omit<EnrichmentResult, "jobId">> {
+    // If neither secondary source returned anything, return Maps result as-is with source tracking
+    if (!jd && !im) {
+      return { ...mapsResult, sources: ["google_maps"] };
+    }
+
+    const sources: string[] = ["google_maps"];
+    if (jd) sources.push("justdial");
+    if (im) sources.push("indiamart");
+
+    // Collect all candidate categories and items across sources
+    const allCategories = new Set<string>([...mapsResult.categories]);
+    if (jd) jd.categories.forEach(c => allCategories.add(c));
+    if (im) im.categories.forEach(c => allCategories.add(c));
+
+    const allItems = [...new Set([
+      ...(jd?.items ?? []),
+      ...(im?.items ?? []),
+    ])];
+
+    const systemPrompt = `You are an AI assistant for Fulfilus, an industrial vendor intelligence platform.
+You have enrichment data from multiple sources for the same vendor. Merge them into a single best result.
+
+Available VendorCategory values: ${VENDOR_CATEGORIES.join(", ")}
+
+Return ONLY valid JSON:
+{
+  "shopName": "best business name",
+  "location": "most complete address",
+  "shopDetails": "2-3 sentence merged description",
+  "categories": ["best subset of VendorCategory values — prefer specificity"],
+  "items": ["merged list of specific products/items this vendor sells"],
+  "notes": "merged operational details",
+  "confidence": 0.0,
+  "insight": "one sentence on confidence and source agreement"
+}`;
+
+    const userContent = `Google Maps:
+Name: ${place.name}
+Address: ${place.formattedAddress}
+Categories: ${mapsResult.categories.join(", ")}
+Details: ${mapsResult.shopDetails}
+Notes: ${mapsResult.notes}
+
+${jd ? `JustDial:
+Categories: ${jd.categories.join(", ")}
+Items: ${jd.items.slice(0, 15).join(", ")}
+Details: ${jd.shopDetails}
+Notes: ${jd.notes}
+Phone: ${jd.phone ?? "N/A"}
+Address: ${jd.address ?? "N/A"}
+Confidence: ${jd.confidence}
+` : "JustDial: not found\n"}
+${im ? `IndiaMart:
+Categories: ${im.categories.join(", ")}
+Items: ${im.items.slice(0, 15).join(", ")}
+Details: ${im.shopDetails}
+Notes: ${im.notes}
+GST: ${im.gstNumber ?? "N/A"}
+Phone: ${im.phone ?? "N/A"}
+Address: ${im.address ?? "N/A"}
+Confidence: ${im.confidence}
+` : "IndiaMart: not found\n"}
+Candidate categories: ${[...allCategories].join(", ")}
+Candidate items: ${allItems.slice(0, 20).join(", ")}`;
+
+    const msg = await this.anthropic.messages.create({
+      model: MODEL_ID,
+      max_tokens: 1536,
+      system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
+      messages: [{ role: "user", content: userContent }],
+    });
+
+    const textBlock = msg.content.find(b => b.type === "text");
+    if (!textBlock || textBlock.type !== "text") {
+      this.logger.warn("[enrich] merge LLM returned no text, falling back to Maps result");
+      return { ...mapsResult, items: allItems, sources };
+    }
+
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(textBlock.text.replace(/^```(?:json)?\s*|```\s*$/g, "").trim()) as Record<string, unknown>;
+    } catch {
+      this.logger.error("[enrich] merge LLM returned invalid JSON, falling back to Maps result");
+      return { ...mapsResult, items: allItems, sources };
+    }
+
+    const validCategories = ((parsed.categories as string[]) ?? []).filter(c =>
+      VENDOR_CATEGORIES.includes(c),
+    ) as VendorCategory[];
+
+    return {
+      shopName: (parsed.shopName as string) || mapsResult.shopName,
+      location: (parsed.location as string) || mapsResult.location,
+      shopDetails: (parsed.shopDetails as string) || mapsResult.shopDetails,
+      categories: validCategories.length > 0 ? validCategories : mapsResult.categories,
+      items: (parsed.items as string[]) ?? allItems,
+      notes: (parsed.notes as string) || mapsResult.notes,
+      confidence: Math.min(1, Math.max(0, (parsed.confidence as number) || mapsResult.confidence)),
+      insight: (parsed.insight as string) || mapsResult.insight,
+      placeId: place.placeId,
+      enrichedAt: new Date().toISOString(),
+      modelUsed: MODEL_ID,
+      sources,
     };
   }
 }

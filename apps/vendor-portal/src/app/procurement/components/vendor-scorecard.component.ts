@@ -11,8 +11,11 @@ import { ProcurementService } from "../services/procurement.service";
   template: `
     <div class="admin-page">
       <div class="admin-header">
-        <a routerLink="/procurement" class="btn-link">← Procurement</a>
-        <h2>Vendor Performance Scorecard</h2>
+        <div>
+          <a routerLink="/procurement" class="back-link">Procurement</a>
+          <h2>Vendor Performance Scorecard</h2>
+        </div>
+        <a routerLink="/admin" class="btn-secondary">All Vendors</a>
       </div>
 
       <div *ngIf="loading" class="empty-state">Loading scorecard...</div>
@@ -21,69 +24,80 @@ import { ProcurementService } from "../services/procurement.service";
         No vendor bid data yet. Start procurement rounds to track performance.
       </div>
 
-      <div *ngIf="!loading && vendors.length > 0">
-        <!-- Score legend -->
-        <div style="margin-bottom:16px; padding:10px 14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; font-size:12px; color:#6b7280;">
-          <strong style="color:#374151;">How scores are calculated:</strong>
-          Response Rate = bids responded / bids sent &nbsp;|&nbsp;
-          Win Rate = rounds awarded / bids responded &nbsp;|&nbsp;
-          Price Competitiveness = rounds with at least one lowest price / rounds participated &nbsp;|&nbsp;
-          Composite = 30% Response + 40% Win Rate + 30% Competitiveness
+      <ng-container *ngIf="!loading && vendors.length > 0">
+        <div class="alert alert-info" style="margin-bottom:16px;">
+          <strong>Composite score:</strong> 30% Response Rate + 40% Win Rate + 30% Price Competitiveness
         </div>
 
-        <div style="overflow-x:auto;">
-          <table style="width:100%; border-collapse:collapse; font-size:13px;">
-            <thead>
-              <tr style="background:#f3f4f6;">
-                <th style="padding:10px 12px; text-align:left;">Vendor</th>
-                <th style="padding:10px 12px; text-align:right; min-width:80px;">Rounds</th>
-                <th style="padding:10px 12px; text-align:right; min-width:90px;">Response Rate</th>
-                <th style="padding:10px 12px; text-align:right; min-width:80px;">Win Rate</th>
-                <th style="padding:10px 12px; text-align:right; min-width:110px;">Price Competitiveness</th>
-                <th style="padding:10px 12px; text-align:right; min-width:100px;">Composite Score</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let v of vendors; let i = index"
-                  style="border-bottom:1px solid #f3f4f6;"
-                  [style.background]="i === 0 ? '#f0fdf4' : 'white'">
-                <td style="padding:10px 12px;">
-                  <div style="font-weight:600;">{{ v.shopName }}</div>
-                  <div style="font-size:11px; color:#9ca3af;">
-                    {{ v.receivedBids }}/{{ v.sentBids }} bids responded &nbsp;|&nbsp; {{ v.wonBids }} won
-                  </div>
-                </td>
-                <td style="padding:10px 12px; text-align:right; color:#374151;">{{ v.totalRounds }}</td>
-                <td style="padding:10px 12px; text-align:right;">
-                  <ng-container *ngIf="v.responseRate != null">
-                    <span [style.color]="scoreColor(v.responseRate)">{{ v.responseRate }}%</span>
-                    <div style="margin-top:3px; height:4px; border-radius:2px; background:#e5e7eb; width:64px; display:inline-block; vertical-align:middle; margin-left:6px;">
-                      <div [style.width]="v.responseRate + '%'" [style.background]="scoreColor(v.responseRate)" style="height:100%; border-radius:2px; transition:width 0.3s;"></div>
+        <div class="panel">
+          <div class="table-wrapper" style="border-radius:var(--r-xl); overflow:hidden;">
+            <table class="scorecard-table">
+              <thead>
+                <tr>
+                  <th>Vendor</th>
+                  <th style="text-align:right;">Rounds</th>
+                  <th style="text-align:right; min-width:120px;">Response Rate</th>
+                  <th style="text-align:right;">Win Rate</th>
+                  <th style="text-align:right; min-width:130px;">Price Competitiveness</th>
+                  <th style="text-align:right; min-width:110px;">Composite Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let v of vendors; let i = index">
+                  <td>
+                    <div style="font-weight:700;">
+                      {{ v.shopName }}
+                      <span *ngIf="i === 0" class="top-badge">TOP</span>
                     </div>
-                  </ng-container>
-                  <span *ngIf="v.responseRate == null" style="color:#d1d5db;">—</span>
-                </td>
-                <td style="padding:10px 12px; text-align:right;">
-                  <span *ngIf="v.winRate != null" [style.color]="scoreColor(v.winRate)">{{ v.winRate }}%</span>
-                  <span *ngIf="v.winRate == null" style="color:#d1d5db;">—</span>
-                </td>
-                <td style="padding:10px 12px; text-align:right;">
-                  <span *ngIf="v.priceCompetitiveness != null" [style.color]="scoreColor(v.priceCompetitiveness)">{{ v.priceCompetitiveness }}%</span>
-                  <span *ngIf="v.priceCompetitiveness == null" style="color:#d1d5db;">—</span>
-                </td>
-                <td style="padding:10px 12px; text-align:right;">
-                  <ng-container *ngIf="v.compositeScore != null">
-                    <span style="font-size:16px; font-weight:700;" [style.color]="scoreColor(v.compositeScore)">{{ v.compositeScore }}</span>
-                    <span style="font-size:11px; color:#9ca3af;">/100</span>
-                    <span *ngIf="i === 0" style="margin-left:6px; font-size:11px; background:#d1fae5; color:#065f46; padding:1px 6px; border-radius:10px;">Top</span>
-                  </ng-container>
-                  <span *ngIf="v.compositeScore == null" style="color:#d1d5db;">—</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                    <div style="font-size:11px; color:var(--text-faint); margin-top:2px;">
+                      {{ v.receivedBids }}/{{ v.sentBids }} bids &nbsp;|&nbsp; {{ v.wonBids }} won
+                    </div>
+                  </td>
+                  <td style="text-align:right;">{{ v.totalRounds }}</td>
+                  <td style="text-align:right;">
+                    <ng-container *ngIf="v.responseRate != null">
+                      <div class="score-bar-wrap" style="justify-content:flex-end;">
+                        <div class="score-bar">
+                          <div class="score-fill" [class.high]="v.responseRate >= 70" [class.mid]="v.responseRate >= 40 && v.responseRate < 70" [class.low]="v.responseRate < 40"
+                               [style.width]="v.responseRate + '%'"></div>
+                        </div>
+                        <span class="score-pill" [class.high]="v.responseRate >= 70" [class.mid]="v.responseRate >= 40 && v.responseRate < 70" [class.low]="v.responseRate < 40">
+                          {{ v.responseRate }}%
+                        </span>
+                      </div>
+                    </ng-container>
+                    <span *ngIf="v.responseRate == null" style="color:var(--text-faint);">—</span>
+                  </td>
+                  <td style="text-align:right;">
+                    <span *ngIf="v.winRate != null" class="score-pill"
+                          [class.high]="v.winRate >= 70" [class.mid]="v.winRate >= 40 && v.winRate < 70" [class.low]="v.winRate < 40">
+                      {{ v.winRate }}%
+                    </span>
+                    <span *ngIf="v.winRate == null" style="color:var(--text-faint);">—</span>
+                  </td>
+                  <td style="text-align:right;">
+                    <span *ngIf="v.priceCompetitiveness != null" class="score-pill"
+                          [class.high]="v.priceCompetitiveness >= 70" [class.mid]="v.priceCompetitiveness >= 40 && v.priceCompetitiveness < 70" [class.low]="v.priceCompetitiveness < 40">
+                      {{ v.priceCompetitiveness }}%
+                    </span>
+                    <span *ngIf="v.priceCompetitiveness == null" style="color:var(--text-faint);">—</span>
+                  </td>
+                  <td style="text-align:right;">
+                    <ng-container *ngIf="v.compositeScore != null">
+                      <span class="score-pill" style="font-size:15px; min-width:52px;"
+                            [class.high]="v.compositeScore >= 70" [class.mid]="v.compositeScore >= 40 && v.compositeScore < 70" [class.low]="v.compositeScore < 40">
+                        {{ v.compositeScore }}
+                      </span>
+                      <span style="font-size:10px; color:var(--text-faint);">/100</span>
+                    </ng-container>
+                    <span *ngIf="v.compositeScore == null" style="color:var(--text-faint);">—</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      </ng-container>
     </div>
   `,
 })

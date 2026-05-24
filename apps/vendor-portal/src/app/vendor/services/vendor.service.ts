@@ -88,8 +88,8 @@ export class VendorService {
     return this.http.post<EnrichmentResult>(`${environment.apiUrl}/enrich/justdial-url`, { url });
   }
 
-  reEnrich(id: string): Observable<EnrichmentResult> {
-    return this.http.post<EnrichmentResult>(`${this.base}/${id}/re-enrich`, {});
+  reEnrich(id: string): Observable<{ jobId: string }> {
+    return this.http.post<{ jobId: string }>(`${this.base}/${id}/re-enrich`, {});
   }
 
   listContactLogs(vendorId: string): Observable<ContactLogResponseDto[]> {
@@ -112,5 +112,21 @@ export class VendorService {
 
   mergeVendors(sourceId: string, targetId: string): Observable<{ survivingId: string; survivingName: string; deletedId: string; deletedName: string }> {
     return this.http.post<{ survivingId: string; survivingName: string; deletedId: string; deletedName: string }>(`${this.base}/merge`, { sourceId, targetId });
+  }
+
+  listVendorInvoices(vendorId: string): Observable<{ id: string; invoiceNumber: string; amount: number; dueAt: string | null; paidAt: string | null; notes: string | null; quotationId: string | null }[]> {
+    return this.http.get<{ id: string; invoiceNumber: string; amount: number; dueAt: string | null; paidAt: string | null; notes: string | null; quotationId: string | null }[]>(`${this.base}/${vendorId}/invoices`);
+  }
+
+  createVendorInvoice(vendorId: string, dto: { invoiceNumber: string; amount: number; dueAt?: string; notes?: string }): Observable<{ id: string; invoiceNumber: string; amount: number; dueAt: string | null; paidAt: string | null; notes: string | null; quotationId: string | null }> {
+    return this.http.post<{ id: string; invoiceNumber: string; amount: number; dueAt: string | null; paidAt: string | null; notes: string | null; quotationId: string | null }>(`${this.base}/${vendorId}/invoices`, dto);
+  }
+
+  updateVendorInvoice(vendorId: string, invoiceId: string, dto: { paidAt?: string; dueAt?: string; notes?: string }): Observable<{ id: string; paidAt: string | null }> {
+    return this.http.patch<{ id: string; paidAt: string | null }>(`${this.base}/${vendorId}/invoices/${invoiceId}`, dto);
+  }
+
+  deleteVendorInvoice(vendorId: string, invoiceId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${vendorId}/invoices/${invoiceId}`);
   }
 }

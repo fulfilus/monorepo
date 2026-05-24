@@ -1,6 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import * as PDFDocumentLib from "pdfkit";
-const PDFDocument = (PDFDocumentLib as unknown as { default: typeof PDFDocumentLib }).default ?? PDFDocumentLib;
+import PDFDocument from "pdfkit";
 import type { Quotation, QuotationLineItem, Vendor } from "@prisma/client";
 
 type QuotationWithRelations = Quotation & {

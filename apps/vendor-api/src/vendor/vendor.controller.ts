@@ -20,12 +20,17 @@ import { createWriteStream } from "node:fs";
 import { extname, join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { pipeline } from "node:stream/promises";
+import { JwtPayload } from "../auth/guards/jwt.guard";
 import { EnrichmentService } from "../enrichment/enrichment.service";
 import { BulkStatusDto } from "./dto/bulk-status.dto";
 import { CreateVendorDto } from "./dto/create-vendor.dto";
 import { UpdateVendorDto } from "./dto/update-vendor.dto";
 import { VendorListQueryDto } from "./dto/vendor-query.dto";
 import { VendorService } from "./vendor.service";
+
+function actor(req: FastifyRequest): string {
+  return ((req as FastifyRequest & { user?: JwtPayload }).user?.username) ?? "system";
+}
 
 @ApiTags("vendors")
 @Controller("vendors")
@@ -41,14 +46,14 @@ export class VendorController {
   }
 
   @Post("merge")
-  merge(@Body() body: { sourceId: string; targetId: string }) {
+  merge(@Body() body: { sourceId: string; targetId: string }, @Req() req: FastifyRequest) {
     if (!body.sourceId || !body.targetId) throw new BadRequestException("sourceId and targetId are required");
-    return this.vendorService.merge(body.sourceId, body.targetId, "admin");
+    return this.vendorService.merge(body.sourceId, body.targetId, actor(req));
   }
 
   @Post()
-  create(@Body() dto: CreateVendorDto) {
-    return this.vendorService.create(dto, "system");
+  create(@Body() dto: CreateVendorDto, @Req() req: FastifyRequest) {
+    return this.vendorService.create(dto, actor(req));
   }
 
   @Get("export")
@@ -71,21 +76,24 @@ export class VendorController {
   }
 
   @Post(":id/re-enrich")
-  async reEnrich(@Param("id") id: string) {
+  async reEnrich(@Param("id") id: string, @Req() req: FastifyRequest) {
     const vendor = await this.vendorService.findOne(id);
     const mapsUrl = vendor.placeId
       ? `https://maps.google.com/?place_id=${vendor.placeId}`
       : `https://www.google.com/maps/search/${encodeURIComponent(`${vendor.shopName} ${vendor.location}`)}`;
-    const result = await this.enrichmentService.enrichFromMapsUrl(mapsUrl);
-    await this.vendorService.update(id, {
-      shopName: result.shopName,
-      location: result.location,
-      shopDetails: result.shopDetails,
-      notes: result.notes,
-      categories: result.categories,
-    }, "re-enrich");
-    await this.vendorService.linkEnrichmentJob(result.jobId, id);
-    return result;
+    const user = actor(req);
+    const jobId = await this.enrichmentService.startEnrichmentJob(mapsUrl, async (result) => {
+      await this.vendorService.update(id, {
+        shopName: result.shopName,
+        location: result.location,
+        shopDetails: result.shopDetails,
+        notes: result.notes,
+        categories: result.categories,
+      }, user);
+      await this.vendorService.linkEnrichmentJob(result.jobId, id);
+    });
+    await this.vendorService.linkEnrichmentJob(jobId, id);
+    return { jobId };
   }
 
   @Get(":id/audit-logs")
@@ -99,8 +107,8 @@ export class VendorController {
   }
 
   @Patch(":id")
-  update(@Param("id") id: string, @Body() dto: UpdateVendorDto) {
-    return this.vendorService.update(id, dto, "system");
+  update(@Param("id") id: string, @Body() dto: UpdateVendorDto, @Req() req: FastifyRequest) {
+    return this.vendorService.update(id, dto, actor(req));
   }
 
   @Delete(":id")
@@ -118,7 +126,7 @@ export class VendorController {
     for await (const chunk of part.file) { chunks.push(chunk as Buffer); }
     const csv = Buffer.concat(chunks);
     if (csv.length === 0) throw new BadRequestException("Empty file");
-    return this.vendorService.bulkImportCsv(csv, "import");
+    return this.vendorService.bulkImportCsv(csv, actor(req));
   }
 
   @Post(":id/photo")
@@ -133,6 +141,37 @@ export class VendorController {
 
     await pipeline(part.file, createWriteStream(dest));
 
-    return this.vendorService.updateShopPhoto(id, `/uploads/${filename}`, "system");
+    return this.vendorService.updateShopPhoto(id, `/uploads/${filename}`, actor(req));
+  }
+
+  // --- Vendor invoices ---
+
+  @Get(":id/invoices")
+  listVendorInvoices(@Param("id") id: string) {
+    return this.vendorService.listVendorInvoices(id);
+  }
+
+  @Post(":id/invoices")
+  @HttpCode(HttpStatus.CREATED)
+  createVendorInvoice(
+    @Param("id") id: string,
+    @Body() dto: { invoiceNumber: string; amount: number; dueAt?: string; quotationId?: string; notes?: string },
+  ) {
+    return this.vendorService.createVendorInvoice(id, dto);
+  }
+
+  @Patch(":id/invoices/:invoiceId")
+  updateVendorInvoice(
+    @Param("id") id: string,
+    @Param("invoiceId") invoiceId: string,
+    @Body() dto: { paidAt?: string; dueAt?: string; notes?: string },
+  ) {
+    return this.vendorService.updateVendorInvoice(id, invoiceId, dto);
+  }
+
+  @Delete(":id/invoices/:invoiceId")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteVendorInvoice(@Param("id") id: string, @Param("invoiceId") invoiceId: string) {
+    return this.vendorService.deleteVendorInvoice(id, invoiceId);
   }
 }

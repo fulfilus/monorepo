@@ -11,7 +11,7 @@ import {
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { AiSuggestedItem, QuotationTemplateResponseDto, QuotationType } from "@fulfilus/shared";
 import { FormsModule } from "@angular/forms";
-import { Subject, takeUntil } from "rxjs";
+import { combineLatest, EMPTY, Subject, switchMap, takeUntil } from "rxjs";
 import { QuotationService } from "../services/quotation.service";
 
 const GST_SLABS = [0, 5, 12, 18, 28];
@@ -53,12 +53,11 @@ const GST_SLABS = [0, 5, 12, 18, 28];
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
             <h3 style="margin:0;">Line Items</h3>
             <div style="display:flex; gap:8px;">
-              <button type="button" (click)="suggestItems()" [disabled]="suggesting" style="padding:6px 14px; background:#7c3aed; color:#fff; border:none; border-radius:6px; font-size:13px; cursor:pointer;">
+              <button type="button" (click)="suggestItems()" [disabled]="suggesting"
+                      style="padding:6px 14px; background:var(--purple); color:#fff; border:none; border-radius:var(--r-md); font-size:13px; font-weight:600; cursor:pointer; font-family:var(--font);">
                 {{ suggesting ? 'Suggesting...' : 'AI Suggest Items' }}
               </button>
-              <button type="button" (click)="addRow()" style="padding:6px 14px; background:#16a34a; color:#fff; border:none; border-radius:6px; font-size:13px; cursor:pointer;">
-                + Add Row
-              </button>
+              <button type="button" (click)="addRow()" class="btn-success" style="padding:6px 14px;">+ Add Row</button>
             </div>
           </div>
           <div *ngIf="suggestError" class="error" style="margin-bottom:8px;">{{ suggestError }}</div>
@@ -68,83 +67,73 @@ const GST_SLABS = [0, 5, 12, 18, 28];
           </div>
 
           <div *ngIf="lineItemsArray.length > 0" style="overflow-x:auto;">
-            <table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <table class="table-compact">
               <thead>
-                <tr style="background:#f3f4f6;">
-                  <th style="padding:8px; text-align:left; min-width:140px;">Item Name *</th>
-                  <th style="padding:8px; text-align:left; min-width:100px;">Description</th>
-                  <th style="padding:8px; text-align:right; width:70px;">Qty</th>
-                  <th style="padding:8px; text-align:left; width:55px;">Unit</th>
-                  <th style="padding:8px; text-align:right; width:100px;">Unit Price (₹)</th>
-                  <th style="padding:8px; text-align:left; width:80px;">HSN Code</th>
-                  <th style="padding:8px; text-align:right; width:70px;">GST %</th>
-                  <th style="padding:8px; text-align:right; width:90px;">Subtotal</th>
-                  <th style="padding:8px; text-align:right; width:80px;">GST Amt</th>
-                  <th style="padding:8px; text-align:right; width:95px;">Total incl. GST</th>
-                  <th style="padding:8px; width:28px;"></th>
+                <tr>
+                  <th style="min-width:140px;">Item Name *</th>
+                  <th class="hide-mobile" style="min-width:100px;">Description</th>
+                  <th style="text-align:right; width:70px;">Qty</th>
+                  <th style="width:55px;">Unit</th>
+                  <th style="text-align:right; width:100px;">Unit Price (₹)</th>
+                  <th class="hide-mobile" style="width:80px;">HSN Code</th>
+                  <th class="hide-mobile" style="text-align:right; width:70px;">GST %</th>
+                  <th class="hide-mobile" style="text-align:right; width:90px;">Subtotal</th>
+                  <th class="hide-mobile" style="text-align:right; width:80px;">GST Amt</th>
+                  <th style="text-align:right; width:95px;">Total incl. GST</th>
+                  <th style="width:28px;"></th>
                 </tr>
               </thead>
               <tbody formArrayName="lineItems">
                 <tr *ngFor="let row of lineItemsArray.controls; let i = index" [formGroupName]="i"
-                    [style.background]="aiSuggestedIndices.has(i) ? '#faf5ff' : 'white'">
-                  <td style="padding:4px 8px;">
-                    <input formControlName="itemName" style="width:130px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px;" />
-                  </td>
-                  <td style="padding:4px 8px;">
-                    <input formControlName="description" style="width:95px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px;" />
-                  </td>
-                  <td style="padding:4px 8px;">
-                    <input formControlName="quantity" type="number" min="0" style="width:62px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; text-align:right;" />
-                  </td>
-                  <td style="padding:4px 8px;">
-                    <input formControlName="unit" style="width:48px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px;" />
-                  </td>
-                  <td style="padding:4px 8px;">
-                    <input formControlName="unitPrice" type="number" min="0" style="width:88px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; text-align:right;" />
-                  </td>
-                  <td style="padding:4px 8px;">
-                    <input formControlName="hsnCode" style="width:72px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:12px;"
+                    [style.background]="aiSuggestedIndices.has(i) ? 'var(--purple-bg)' : ''">
+                  <td><input formControlName="itemName" style="width:130px;" /></td>
+                  <td class="hide-mobile"><input formControlName="description" style="width:95px;" /></td>
+                  <td><input formControlName="quantity" type="number" min="0" style="width:62px; text-align:right;" /></td>
+                  <td><input formControlName="unit" style="width:48px;" /></td>
+                  <td><input formControlName="unitPrice" type="number" min="0" style="width:88px; text-align:right;" /></td>
+                  <td class="hide-mobile">
+                    <input formControlName="hsnCode" style="width:72px; font-size:12px;"
                            placeholder="e.g. 7318" (blur)="onHsnBlur(i)" />
-                    <div *ngIf="hsnHints[i]" style="font-size:10px; color:#7c3aed; margin-top:1px;">{{ hsnHints[i] }}</div>
+                    <div *ngIf="hsnHints[i]" style="font-size:10px; color:var(--purple); margin-top:1px;">{{ hsnHints[i] }}</div>
                   </td>
-                  <td style="padding:4px 8px;">
-                    <select formControlName="gstRate" style="width:62px; padding:4px 4px; border:1px solid #d1d5db; border-radius:4px; font-size:13px;">
+                  <td class="hide-mobile">
+                    <select formControlName="gstRate" style="width:62px;">
                       <option [ngValue]="null">—</option>
                       <option *ngFor="let s of gstSlabs" [ngValue]="s">{{ s }}%</option>
                     </select>
                   </td>
-                  <td style="padding:4px 8px; text-align:right; color:#374151;">
+                  <td class="hide-mobile" style="text-align:right; color:var(--text-muted);">
                     {{ rowSubtotal(i) != null ? ('₹' + rowSubtotal(i)!.toFixed(2)) : '—' }}
                   </td>
-                  <td style="padding:4px 8px; text-align:right; color:#d97706; font-size:12px;">
+                  <td class="hide-mobile" style="text-align:right; color:var(--amber); font-size:12px;">
                     {{ rowGst(i) != null ? ('₹' + rowGst(i)!.toFixed(2)) : '—' }}
                   </td>
-                  <td style="padding:4px 8px; text-align:right; font-weight:600; color:#16a34a;">
+                  <td style="text-align:right; font-weight:600; color:var(--green);">
                     {{ rowTotal(i) != null ? ('₹' + rowTotal(i)!.toFixed(2)) : '—' }}
                   </td>
-                  <td style="padding:4px 8px;">
-                    <button type="button" (click)="removeRow(i)" style="color:#dc2626; background:none; border:none; cursor:pointer; font-size:14px;">&#x2715;</button>
+                  <td>
+                    <button type="button" (click)="removeRow(i)" class="btn-link" style="color:var(--red);">&#x2715;</button>
                   </td>
                 </tr>
               </tbody>
             </table>
 
             <!-- Totals footer -->
-            <div style="text-align:right; padding:10px 8px; font-size:13px; border-top:1px solid #e5e7eb; margin-top:4px;">
-              <div style="color:#6b7280; margin-bottom:4px;">
+            <div style="text-align:right; padding:12px 8px; font-size:13px; border-top:1px solid rgba(37,99,235,.08);">
+              <div style="color:var(--text-muted); margin-bottom:4px;">
                 Subtotal: <strong>₹{{ grandSubtotal?.toFixed(2) ?? '—' }}</strong>
               </div>
-              <div style="color:#d97706; margin-bottom:4px;">
+              <div style="color:var(--amber); margin-bottom:4px;">
                 Total GST: <strong>₹{{ grandGst?.toFixed(2) ?? '—' }}</strong>
               </div>
-              <div style="font-size:15px; font-weight:700; color:#16a34a;">
+              <div style="font-size:15px; font-weight:700; color:var(--green);">
                 Grand Total: ₹{{ grandTotal?.toFixed(2) ?? '—' }}
               </div>
             </div>
           </div>
         </section>
 
-        <div class="actions" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        <div class="actions">
           <button type="submit" [disabled]="form.invalid || saving">
             {{ saving ? 'Saving...' : 'Save Quotation' }}
           </button>
@@ -157,22 +146,24 @@ const GST_SLABS = [0, 5, 12, 18, 28];
         </div>
 
         <!-- Template Picker -->
-        <div *ngIf="showTemplatePicker" style="margin-top:16px; padding:12px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-            <h4 style="margin:0; font-size:13px; font-weight:600;">Load from Template</h4>
-            <button type="button" (click)="showTemplatePicker=false" style="background:none;border:none;cursor:pointer;color:#6b7280;font-size:16px;">&times;</button>
+        <div *ngIf="showTemplatePicker" class="panel" style="margin-top:16px;">
+          <div class="panel-header">
+            <h3>Load from Template</h3>
+            <button type="button" (click)="showTemplatePicker=false" class="btn-ghost" style="font-size:16px; padding:2px 8px;">&times;</button>
           </div>
-          <div *ngIf="templatesLoading" class="empty-state" style="padding:8px;">Loading...</div>
-          <div *ngIf="!templatesLoading && templates.length === 0" class="empty-state" style="padding:8px; font-size:12px;">No templates saved yet.</div>
-          <div *ngFor="let t of templates" style="display:flex; justify-content:space-between; align-items:center; padding:8px; border-bottom:1px solid #f3f4f6;">
-            <div>
-              <span style="font-size:13px; font-weight:500;">{{ t.title }}</span>
-              <span class="chip" style="margin-left:8px; font-size:11px;">{{ t.type }}</span>
-              <span style="font-size:11px; color:#9ca3af; margin-left:8px;">{{ (t.lineItems?.length ?? 0) }} items</span>
-            </div>
-            <div style="display:flex; gap:8px;">
-              <button type="button" (click)="loadTemplate(t)" style="font-size:12px; padding:4px 10px; background:#2563eb; color:#fff; border:none; border-radius:5px; cursor:pointer;">Load</button>
-              <button type="button" (click)="deleteTemplate(t.id)" style="font-size:12px; padding:4px 10px; background:none; border:1px solid #dc2626; color:#dc2626; border-radius:5px; cursor:pointer;">Delete</button>
+          <div class="panel-body" style="padding:0;">
+            <div *ngIf="templatesLoading" class="empty-state" style="padding:20px;">Loading...</div>
+            <div *ngIf="!templatesLoading && templates.length === 0" class="empty-state" style="padding:20px; font-size:12px;">No templates saved yet.</div>
+            <div *ngFor="let t of templates" style="display:flex; justify-content:space-between; align-items:center; padding:10px 16px; border-bottom:1px solid rgba(37,99,235,.06);">
+              <div>
+                <span style="font-size:13px; font-weight:600;">{{ t.title }}</span>
+                <span class="chip" style="margin-left:8px;">{{ t.type }}</span>
+                <span style="font-size:11px; color:var(--text-faint); margin-left:8px;">{{ (t.lineItems?.length ?? 0) }} items</span>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <button type="button" (click)="loadTemplate(t)" class="btn-primary" style="padding:5px 12px; font-size:12px;">Load</button>
+                <button type="button" (click)="deleteTemplate(t.id)" class="btn-link" style="color:var(--red); font-size:12px;">Delete</button>
+              </div>
             </div>
           </div>
         </div>
@@ -217,11 +208,6 @@ export class QuotationFormComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
-    this.quotationId = this.route.snapshot.paramMap.get("id") ?? "";
-    this.vendorId = this.route.snapshot.queryParamMap.get("vendorId") ?? "";
-    this.isEdit = !!this.quotationId;
-    this.backLink = this.vendorId ? `/quotations?vendorId=${this.vendorId}` : "/quotations";
-
     this.form = this.fb.group({
       type: [QuotationType.RFQ, Validators.required],
       title: ["", Validators.required],
@@ -230,22 +216,34 @@ export class QuotationFormComponent implements OnInit, OnDestroy {
       lineItems: this.fb.array([]),
     });
 
-    if (this.isEdit) {
-      this.quotationService.getById(this.quotationId).pipe(takeUntil(this.destroy$)).subscribe({
-        next: q => {
-          this.vendorId = q.vendorId;
-          this.backLink = `/quotations?vendorId=${q.vendorId}`;
-          this.form.patchValue({
-            type: q.type,
-            title: q.title,
-            notes: q.notes ?? "",
-            validUntil: q.validUntil ? q.validUntil.substring(0, 10) : "",
-          });
-          (q.lineItems ?? []).forEach(item => this.addRow(item));
-        },
-        error: () => { this.errorMessage = "Failed to load quotation."; },
-      });
-    }
+    combineLatest([this.route.paramMap, this.route.queryParamMap]).pipe(
+      takeUntil(this.destroy$),
+      switchMap(([params, queryParams]) => {
+        this.quotationId = params.get("id") ?? "";
+        this.vendorId = queryParams.get("vendorId") ?? "";
+        this.isEdit = !!this.quotationId;
+        this.backLink = this.vendorId ? `/quotations?vendorId=${this.vendorId}` : "/quotations";
+        this.errorMessage = "";
+        this.successMessage = "";
+        this.form.reset({ type: QuotationType.RFQ, title: "", notes: "", validUntil: "" });
+        while (this.lineItemsArray.length) this.lineItemsArray.removeAt(0);
+        if (!this.isEdit) return EMPTY;
+        return this.quotationService.getById(this.quotationId);
+      }),
+    ).subscribe({
+      next: q => {
+        this.vendorId = q.vendorId;
+        this.backLink = `/quotations?vendorId=${q.vendorId}`;
+        this.form.patchValue({
+          type: q.type,
+          title: q.title,
+          notes: q.notes ?? "",
+          validUntil: q.validUntil ? q.validUntil.substring(0, 10) : "",
+        });
+        (q.lineItems ?? []).forEach(item => this.addRow(item));
+      },
+      error: () => { this.errorMessage = "Failed to load quotation."; },
+    });
   }
 
   ngOnDestroy() {

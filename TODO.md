@@ -5,6 +5,21 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done
 
 ---
 
+## P0 — Security and Access Control
+
+- [x] **JWT authentication** — access + refresh token rotation, httpOnly cookie, global guard
+- [x] **TOTP two-factor authentication** — setup, enable, disable, confirm at login
+- [x] **Account lockout** — 5 failed attempts → 15-minute lock; remaining-attempts feedback
+- [x] **Rate limiting** — global 200/min; auth endpoints 10/min per IP
+- [x] **Roles (ADMIN / STAFF)** — `@Roles()` decorator + `RolesGuard`; admin-only user management
+- [x] **User management** — create, role change, unlock, password reset, delete; admin-only
+- [x] **Invite-only system** — registration endpoint removed; users provisioned by admins
+- [x] **Angular auth layer** — interceptor, guards, login page, admin guard on `/admin/*`
+- [ ] **Role-based field visibility** — hide destructive actions (delete, merge, bulk import) from STAFF users in the frontend
+- [ ] **Audit log actor** — `AuditLog.changedBy` currently stores username string; consider linking to `userId` FK for traceability
+
+---
+
 ## P0 — Core Workflow Gaps
 
 - [x] **Smart sourcing and margin quotation builder** — add items manually / paste / CSV; lookup vendor prices from price lists and historical bids; apply global markup % with per-item override; generate customer-facing PDF and internal cost sheet PDF

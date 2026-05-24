@@ -1,4 +1,4 @@
-import { IsArray, IsEnum, IsNumber, IsOptional, IsString, ValidateNested } from "class-validator";
+import { IsArray, IsDateString, IsEnum, IsNumber, IsOptional, IsString, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
 
 export enum AwardType { SPLIT = "SPLIT", SINGLE = "SINGLE" }
@@ -18,6 +18,7 @@ export class ProcurementItemDto {
 export class CreateProcurementDto {
   @IsString() title!: string;
   @IsOptional() @IsString() notes?: string;
+  @IsOptional() @IsDateString() deadline?: string;
   @IsArray() @ValidateNested({ each: true }) @Type(() => ProcurementItemDto)
   items!: ProcurementItemDto[];
 }
@@ -48,4 +49,11 @@ export class UpdateBidDto {
 export class AwardDto {
   @IsEnum(AwardType) type!: AwardType;
   @IsOptional() @IsString() singleVendorId?: string;
+}
+
+export class DeliveryUpdateDto {
+  @IsOptional() @IsDateString() expectedDeliveryAt?: string;
+  @IsOptional() @IsDateString() deliveredAt?: string;
+  @IsOptional() @IsNumber() receivedQty?: number;
+  @IsOptional() @IsString() discrepancyNotes?: string;
 }

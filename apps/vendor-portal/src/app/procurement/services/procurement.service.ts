@@ -35,6 +35,10 @@ export class ProcurementService {
     return this.http.delete<void>(`${this.base}/${roundId}/vendors/${bidId}`);
   }
 
+  updateDelivery(roundId: string, bidId: string, payload: { expectedDeliveryAt?: string; deliveredAt?: string; receivedQty?: number; discrepancyNotes?: string }): Observable<VendorBidDto> {
+    return this.http.patch<VendorBidDto>(`${this.base}/${roundId}/vendors/${bidId}/delivery`, payload);
+  }
+
   getComparison(roundId: string): Observable<ComparisonResultDto> {
     return this.http.get<ComparisonResultDto>(`${this.base}/${roundId}/comparison`);
   }

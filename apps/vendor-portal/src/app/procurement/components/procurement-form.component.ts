@@ -35,56 +35,44 @@ declare class BarcodeDetector {
         <section>
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
             <h3 style="margin:0;">Items to Source</h3>
-            <button type="button" (click)="addItem()" style="padding:6px 14px; background:#16a34a; color:#fff; border:none; border-radius:6px; font-size:13px; cursor:pointer;">
-              + Add Item
-            </button>
+            <button type="button" (click)="addItem()" class="btn-success" style="padding:6px 14px;">+ Add Item</button>
           </div>
 
           <div style="overflow-x:auto;">
-            <table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <table class="table-compact">
               <thead>
-                <tr style="background:#f3f4f6;">
-                  <th style="padding:8px; text-align:left;">Item Name *</th>
-                  <th style="padding:8px; text-align:left;">Description</th>
-                  <th style="padding:8px; text-align:right; width:80px;">Qty</th>
-                  <th style="padding:8px; text-align:left; width:70px;">Unit</th>
-                  <th style="padding:8px; text-align:right; width:120px;">Target Price (₹)</th>
-                  <th style="padding:8px; text-align:left; width:100px;">Barcode</th>
-                  <th style="padding:8px; width:36px;"></th>
+                <tr>
+                  <th>Item Name *</th>
+                  <th>Description</th>
+                  <th style="text-align:right; width:80px;">Qty</th>
+                  <th style="width:70px;">Unit</th>
+                  <th style="text-align:right; width:120px;">Target Price (₹)</th>
+                  <th style="width:110px;">Barcode</th>
+                  <th style="width:36px;"></th>
                 </tr>
               </thead>
               <tbody formArrayName="items">
                 <tr *ngFor="let row of items.controls; let i = index" [formGroupName]="i">
-                  <td style="padding:4px 8px;">
-                    <input formControlName="itemName" style="width:160px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px;" placeholder="e.g. Rice 25kg" />
-                  </td>
-                  <td style="padding:4px 8px;">
-                    <input formControlName="description" style="width:140px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px;" />
-                  </td>
-                  <td style="padding:4px 8px;">
-                    <input formControlName="quantity" type="number" min="0" style="width:70px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; text-align:right;" />
-                  </td>
-                  <td style="padding:4px 8px;">
-                    <input formControlName="unit" style="width:60px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px;" placeholder="kg" />
-                  </td>
-                  <td style="padding:4px 8px;">
-                    <input formControlName="targetPrice" type="number" min="0" style="width:100px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; text-align:right;" />
-                  </td>
-                  <td style="padding:4px 8px;">
+                  <td><input formControlName="itemName" style="width:160px;" placeholder="e.g. Rice 25kg" /></td>
+                  <td><input formControlName="description" style="width:140px;" /></td>
+                  <td><input formControlName="quantity" type="number" min="0" style="width:70px; text-align:right;" /></td>
+                  <td><input formControlName="unit" style="width:60px;" placeholder="kg" /></td>
+                  <td><input formControlName="targetPrice" type="number" min="0" style="width:100px; text-align:right;" /></td>
+                  <td>
                     <div style="display:flex; align-items:center; gap:4px;">
-                      <input formControlName="barcode" style="width:72px; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px;"
+                      <input formControlName="barcode" style="width:72px; font-size:11px;"
                              placeholder="barcode" (keydown.enter)="$event.preventDefault(); lookupBarcode(i)" />
-                      <button type="button" (click)="openScanner(i)" title="Scan barcode"
-                              style="padding:3px 6px; border:1px solid #d1d5db; border-radius:4px; background:#f9fafb; cursor:pointer; font-size:14px; line-height:1;">&#x1F4F7;</button>
+                      <button type="button" (click)="openScanner(i)" title="Scan barcode" class="btn-ghost"
+                              style="padding:3px 7px; font-size:14px;">&#x1F4F7;</button>
                     </div>
                     <div *ngIf="lookupState[i]" style="font-size:11px; margin-top:2px;"
-                         [style.color]="lookupState[i] === 'found' ? '#16a34a' : lookupState[i] === 'not_found' ? '#dc2626' : '#6b7280'">
+                         [style.color]="lookupState[i] === 'found' ? 'var(--green)' : lookupState[i] === 'not_found' ? 'var(--red)' : 'var(--text-muted)'">
                       {{ lookupState[i] === 'found' ? 'Auto-filled' : lookupState[i] === 'not_found' ? 'Not found' : 'Looking up...' }}
                     </div>
                   </td>
-                  <td style="padding:4px 8px;">
+                  <td>
                     <button type="button" (click)="removeItem(i)" [disabled]="items.length === 1"
-                            style="color:#dc2626; background:none; border:none; cursor:pointer; font-size:16px; opacity:0.8;" title="Remove">&#x2715;</button>
+                            class="btn-link" style="color:var(--red); font-size:15px;" title="Remove">&#x2715;</button>
                   </td>
                 </tr>
               </tbody>
@@ -103,38 +91,39 @@ declare class BarcodeDetector {
       </form>
 
       <!-- Camera scanner modal -->
-      <div *ngIf="scannerOpen" style="position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; display:flex; align-items:center; justify-content:center;">
-        <div style="background:#fff; border-radius:12px; padding:20px; width:360px; max-width:95vw;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <h3 style="font-size:14px; font-weight:600; margin:0;">Scan Barcode / QR Code</h3>
-            <button (click)="closeScanner()" style="background:none; border:none; cursor:pointer; font-size:18px; color:#6b7280;">&times;</button>
+      <div *ngIf="scannerOpen" class="modal-overlay">
+        <div class="modal-card" style="width:380px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h3 style="margin:0; font-size:15px;">Scan Barcode / QR Code</h3>
+            <button (click)="closeScanner()" class="btn-ghost" style="font-size:18px; padding:2px 8px;">&times;</button>
           </div>
 
-          <div *ngIf="!cameraSupported" style="font-size:13px; color:#dc2626; margin-bottom:12px;">
+          <div *ngIf="!cameraSupported" class="alert alert-error" style="margin-bottom:12px;">
             Camera or BarcodeDetector API not available. Enter barcode manually below.
           </div>
 
           <video #videoEl *ngIf="cameraSupported && !scanResult"
                  autoplay playsinline muted
-                 style="width:100%; border-radius:6px; background:#000; aspect-ratio:4/3; object-fit:cover;"></video>
+                 style="width:100%; border-radius:var(--r-md); background:#000; aspect-ratio:4/3; object-fit:cover;"></video>
 
-          <div *ngIf="scanResult" style="margin-top:8px; padding:10px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; font-size:13px;">
+          <div *ngIf="scanResult" class="alert alert-success" style="margin-top:8px;">
             Scanned: <strong>{{ scanResult }}</strong>
-            <div *ngIf="scanLookupState === 'loading'" style="margin-top:4px; color:#6b7280;">Looking up...</div>
-            <div *ngIf="scanLookupState === 'found'" style="margin-top:4px; color:#16a34a;">Auto-filled row {{ (scanTargetRow ?? 0) + 1 }}</div>
-            <div *ngIf="scanLookupState === 'not_found'" style="margin-top:4px; color:#dc2626;">Not found — barcode saved to row.</div>
+            <div *ngIf="scanLookupState === 'loading'" style="margin-top:4px; color:var(--text-muted);">Looking up...</div>
+            <div *ngIf="scanLookupState === 'found'" style="margin-top:4px;">Auto-filled row {{ (scanTargetRow ?? 0) + 1 }}</div>
+            <div *ngIf="scanLookupState === 'not_found'" style="margin-top:4px; color:var(--red);">Not found — barcode saved to row.</div>
           </div>
 
-          <div style="margin-top:12px;">
-            <label style="font-size:12px; font-weight:500; color:#374151;">Manual entry
+          <div style="margin-top:14px;">
+            <label class="compact-label">Manual entry
               <div style="display:flex; gap:8px; margin-top:4px;">
-                <input [(ngModel)]="manualBarcode" placeholder="Enter barcode..." style="flex:1; padding:7px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px;" (keydown.enter)="submitManualBarcode()" />
-                <button (click)="submitManualBarcode()" style="padding:7px 12px; background:#2563eb; color:#fff; border:none; border-radius:6px; font-size:13px; cursor:pointer;">OK</button>
+                <input class="inline-input" [(ngModel)]="manualBarcode" placeholder="Enter barcode..."
+                       style="flex:1;" (keydown.enter)="submitManualBarcode()" />
+                <button (click)="submitManualBarcode()" class="btn-primary" style="padding:7px 14px;">OK</button>
               </div>
             </label>
           </div>
 
-          <div *ngIf="cameraError" style="margin-top:8px; font-size:12px; color:#dc2626;">{{ cameraError }}</div>
+          <div *ngIf="cameraError" style="margin-top:8px; font-size:12px; color:var(--red);">{{ cameraError }}</div>
         </div>
       </div>
     </div>

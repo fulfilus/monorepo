@@ -31,4 +31,10 @@ export class CustomerService {
   remove(id: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/${id}`);
   }
+
+  bulkImportCsv(file: File): Observable<{ created: number; skipped: number; errors: string[] }> {
+    const form = new FormData();
+    form.append("file", file);
+    return this.http.post<{ created: number; skipped: number; errors: string[] }>(`${this.base}/bulk-import`, form);
+  }
 }

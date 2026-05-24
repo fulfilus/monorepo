@@ -14,13 +14,14 @@ Fulfilus is a B2B procurement and vendor intelligence platform for industrial/gr
 
 | Layer | Technology |
 |---|---|
-| API | NestJS 10, Fastify, Prisma 5, PostgreSQL |
-| Frontend | Angular 17 standalone components (no NgModules) |
+| API | NestJS 11, Fastify 5, Prisma 6.19.3, PostgreSQL |
+| Frontend | Angular 21 standalone components (zoneless, no NgModules) |
+| Auth | JWT (access 15 min) + httpOnly cookie refresh tokens (7 days, DB-stored); TOTP 2FA via `otplib` v13 |
 | Shared | `packages/shared` — TypeScript DTOs and enums |
 | Package manager | pnpm workspaces |
 | AI | Anthropic SDK (`claude-sonnet-4-6`) — enrichment, extraction, line-item suggestions |
 | External APIs | Google Maps Places, WhatsApp Business API v19.0, Meta Graph API v19.0 |
-| Background jobs | `@nestjs/schedule` cron (auto-expire quotes, enrichment jobs) |
+| Background jobs | `@nestjs/schedule` cron (auto-expire quotes, token cleanup, enrichment jobs) |
 
 ---
 
@@ -32,7 +33,10 @@ fulfilus/
     vendor-api/          NestJS backend (port 3000)
       prisma/schema.prisma
       src/
-        common/          PrismaModule (global), AuditMiddleware, gst.util (HSN lookup, GST breakdown)
+        common/          PrismaModule (global), AuditMiddleware, gst.util, roles.decorator, roles.guard
+        auth/            JWT login/logout/refresh, TOTP 2FA, account lockout, token cleanup cron
+        health/          GET /health (public, DB liveness check)
+        users/           User CRUD (admin-only): create, role change, unlock, password reset, delete
         vendor/          Vendor CRUD, enrichment trigger, merge, bulk import
         enrichment/      Google Maps, JustDial, IndiaMart, LLM extraction
         quotation/       RFQ / Price List / PO Quote with PDF; HSN lookup; accounting export
@@ -45,9 +49,11 @@ fulfilus/
         dashboard/       KPI aggregations, spend analytics
         document/        File upload/download
         contact-log/     Per-vendor interaction timeline
-    vendor-portal/       Angular 17 SPA (port 4200, proxies to 3000)
+    vendor-portal/       Angular 21 SPA (port 4200, proxies to 3000)
       src/app/
-        admin/           vendor-list, vendor-edit, dashboard (with accounting export)
+        core/            auth.service (signals), auth.interceptor, auth.guard, admin.guard
+        auth/            login.component (2-step: credentials + TOTP)
+        admin/           vendor-list, vendor-edit, dashboard (with accounting export), users-list
         vendor/          vendor-form (public onboarding)
         quotation/       quotation-list, quotation-form (GST per row), quotation-detail
         procurement/     procurement-list, procurement-form (barcode scan), procurement-detail
@@ -98,12 +104,36 @@ fulfilus/
 - **InboundMessage** — waMessageId (idempotency), fromNumber, messageType (text/image), rawText, imageMediaId, extractedItems JSON, status PENDING/PROCESSING/QUOTED/FAILED, customerId (nullable FK), quoteId (unique nullable FK)
 - **QuoteValidation** — quoteId (unique), score 0-100, flags JSON, status PENDING_REVIEW/APPROVED/REJECTED, reviewedBy, reviewNotes
 
+### Auth
+- **User** — username, email, passwordHash, role (ADMIN/STAFF), twoFaSecret?, twoFaEnabled, failedLoginAttempts, lockedUntil?
+- **RefreshToken** — token (hashed random bytes), userId FK, expiresAt; 2FA pending tokens prefixed `2fa:`
+
 ### System
 - **AuditLog** — every API request logged (method, path, statusCode, durationMs, body snapshot)
 
 ---
 
 ## Key API Endpoints
+
+### Auth (all public unless noted)
+- `POST /auth/login` — returns `{accessToken}` + sets `rfsh` httpOnly cookie; or `{requiresTwoFa, tempToken}` if 2FA enabled
+- `POST /auth/2fa/confirm` — exchanges tempToken + TOTP code for full tokens
+- `POST /auth/refresh` — rotates refresh token; reads `rfsh` cookie
+- `POST /auth/logout` — clears cookie and deletes DB token (requires auth)
+- `GET /auth/me` — current user (requires auth)
+- `POST /auth/change-password` — current + new password (requires auth)
+- `POST /auth/2fa/setup` — generates secret + QR code (requires auth)
+- `POST /auth/2fa/enable` — verifies code, activates 2FA (requires auth)
+- `POST /auth/2fa/disable` — verifies code, deactivates 2FA (requires auth)
+- `GET /health` — DB liveness; 200 `{status, db, timestamp}` or 503
+
+### User Management (admin only)
+- `GET /users` — list all users (no passwordHash)
+- `POST /users` — create user with role
+- `PATCH /users/:id/role` — change role
+- `POST /users/:id/unlock` — reset failedLoginAttempts + lockedUntil
+- `POST /users/:id/reset-password` — set new password, revoke all refresh tokens
+- `DELETE /users/:id` — delete user
 
 ### Vendors
 - `GET/POST /vendors` — list (search, status, category filter, pagination) / create
@@ -169,8 +199,10 @@ fulfilus/
 
 | Path | Component | Purpose |
 |---|---|---|
+| `/login` | login-component | Credentials + optional TOTP step; public |
 | `/` | vendor-form | Public vendor onboarding |
-| `/admin` | vendor-list | Vendor management + nav hub |
+| `/admin` | vendor-list | Vendor management + nav hub (admin guard) |
+| `/admin/users` | users-list | User management — create, role, unlock, reset password (admin guard) |
 | `/admin/dashboard` | dashboard | KPI cards, accounting export date picker |
 | `/admin/vendors/:id` | vendor-edit | Edit vendor, enrichment, docs, contact log |
 | `/quotations` | quotation-list | RFQ/PO quotation list |
@@ -215,13 +247,18 @@ Customer sends text or image to WhatsApp number. Webhook receives message, ident
 
 ## Important Patterns
 
+- **JWT global guard**: `JwtGuard` is registered as `APP_GUARD` in `AuthModule`. Routes opt out with `@Public()` which uses `SetMetadata(IS_PUBLIC, true)` — not `Reflect.metadata` (NestJS Reflector requires SetMetadata).
+- **Per-route rate limit**: use `@RouteConfig({ rateLimit: { max: N, timeWindow: ms } })` from `@nestjs/platform-fastify` to override the global limit on individual routes (e.g. auth endpoints).
+- **Roles guard**: `RolesGuard` is not global — apply it per controller with `@UseGuards(RolesGuard) @Roles('ADMIN')`. The guard reads `request.user.role` which is set by `JwtGuard`.
+- **Actor in audit logs**: use `actor(req)` helper — `((req as FastifyRequest & { user?: JwtPayload }).user?.username) ?? "system"` — to capture the JWT username in audit and changedBy fields. Never hardcode "system" or "admin".
+- **otplib v13 API**: `authenticator` singleton is removed. Use `new OTP({ strategy: "totp" })`. Verify with `const result = await otp.verify({ token, secret }); if (!result.valid) throw ...`.
 - **Prisma LSP false positives**: LSP shows "Property X does not exist on PrismaService" after schema changes. Always use `tsc --noEmit` as the authoritative check — it reads generated types correctly.
 - **NestJS static route ordering**: static routes (`/hsn-lookup`, `/barcode-lookup`, `/accounting-export`, `/templates`) must be declared before `/:id` wildcard routes in controllers. NestJS matches routes top-to-bottom; a wildcard declared first will capture all path segments as an ID.
 - **Shared package build required**: after editing `packages/shared/src/*.ts`, run `pnpm --filter @fulfilus/shared build` before running `tsc --noEmit` on the backend. The backend imports from the compiled `dist/`, not the source.
 - **Local DTO classes vs shared package**: `apps/vendor-api/src/quotation/dto/create-quotation.dto.ts` has its own `LineItemDto` class separate from `packages/shared`. When adding fields to the shared DTO, also add them to the local class or tsc will error.
 - **Prisma enum migrations**: adding enum values requires a separate committed transaction. Split into two migration files: first `ALTER TYPE ... ADD VALUE`, then use the new values.
 - **Prisma JSON column serialization**: JSON columns (e.g. `ProcurementRoundTemplate.items`) require plain objects. Class instances fail the `InputJsonValue` type check. Fix: `dto.items.map(i => ({ ...i }))` to spread to plain objects.
-- **PDFKit ESM/CJS interop**: `import * as PDFDocumentLib from "pdfkit"` then `const PDFDocument = (PDFDocumentLib as { default?: typeof PDFDocumentLib }).default ?? PDFDocumentLib`. Pre-existing tsc error — runtime works correctly.
+- **PDFKit import**: use `import PDFDocument from "pdfkit"` with `allowSyntheticDefaultImports: true` in tsconfig. The old `import *` pattern caused a tsc constructor error and has been removed from all three PDF services.
 - **GST utility** (`apps/vendor-api/src/common/gst.util.ts`): `gstRateForHsn(code)` resolves an HSN code to a GST rate using 8→6→4 digit prefix matching against a static map. `gstBreakdown(amount, rate)` returns `{cgst, sgst, igst, total}` — CGST and SGST are each half the total GST for intra-state. `GST_SLABS = [0, 5, 12, 18, 28]`.
 - **BarcodeDetector API**: native browser API for camera barcode/QR scanning. Not in TypeScript's standard DOM lib — declare with `declare class BarcodeDetector { ... }` in the component file. Check `typeof BarcodeDetector !== "undefined"` at runtime for graceful fallback to manual text entry. Use `requestAnimationFrame` for the scan loop (not `setInterval`) to avoid excessive CPU.
 - **Angular standalone components**: every component declares its own `imports: [CommonModule, FormsModule, RouterLink, ...]`. No shared NgModule.
@@ -237,10 +274,16 @@ Customer sends text or image to WhatsApp number. Webhook receives message, ident
 ## Environment Variables
 
 ```
+# Required
 DATABASE_URL              PostgreSQL connection string
 ANTHROPIC_API_KEY         Claude API key
-GOOGLE_MAPS_API_KEY       Places API key
+JWT_SECRET                Secret for signing JWT access tokens
+
+# Optional (features limited if absent)
+GOOGLE_MAPS_SERVER_KEY    Places API key (server-side enrichment)
+ALLOWED_ORIGINS           Comma-separated CORS origins (default: http://localhost:4200)
 WHATSAPP_API_TOKEN        Meta Graph API Bearer token
 WHATSAPP_PHONE_NUMBER_ID  WhatsApp Business phone number ID
-WHATSAPP_VERIFY_TOKEN     Webhook verification token (default: fulfilus-verify)
+WHATSAPP_VERIFY_TOKEN     Webhook verification token
+COOKIE_SECRET             Fastify cookie signing secret (falls back to JWT_SECRET)
 ```

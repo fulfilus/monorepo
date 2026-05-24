@@ -19,18 +19,15 @@ interface StatusTransition {
   template: `
     <div class="admin-page" *ngIf="quotation; else loading">
       <div class="admin-header">
-        <a [routerLink]="['/quotations']" [queryParams]="{ vendorId: quotation.vendorId }" class="btn-link">← Back to list</a>
+        <a [routerLink]="['/quotations']" [queryParams]="{ vendorId: quotation.vendorId }" class="back-link">Back to list</a>
         <h2>{{ quotation.referenceNumber }}</h2>
-        <div style="display:flex; gap:8px; margin-left:auto;">
+        <div class="admin-header-actions">
           <a *ngIf="quotation.status === 'DRAFT'" [routerLink]="['/quotations', quotation.id, 'edit']" class="btn-secondary">Edit</a>
-          <button *ngIf="quotation.status === 'DRAFT'" type="button" (click)="deleteQuotation()"
-            style="background:#dc2626;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;">
-            Delete
-          </button>
+          <button *ngIf="quotation.status === 'DRAFT'" type="button" (click)="deleteQuotation()" class="btn-danger">Delete</button>
           <button type="button" (click)="downloadPdf()" [disabled]="downloading" class="btn-secondary">
             {{ downloading ? 'Generating...' : 'Download PDF' }}
           </button>
-          <button type="button" (click)="shareWhatsApp()" class="btn-secondary" style="background:#16a34a; color:#fff; border:none;">
+          <button type="button" (click)="shareWhatsApp()" class="btn-success" style="padding:8px 18px;">
             Share on WhatsApp
           </button>
           <button type="button" (click)="saveAsTemplate()" [disabled]="templateSaving" class="btn-secondary">
@@ -38,10 +35,10 @@ interface StatusTransition {
           </button>
         </div>
       </div>
-      <div *ngIf="templateMessage" class="success" style="margin-bottom:8px;">{{ templateMessage }}</div>
+      <div *ngIf="templateMessage" class="alert alert-success" style="margin-bottom:8px;">{{ templateMessage }}</div>
 
       <!-- Status transitions -->
-      <div *ngIf="statusTransitions.length" style="display:flex; gap:8px; padding:12px 0; border-bottom:1px solid #e5e7eb; margin-bottom:16px;">
+      <div *ngIf="statusTransitions.length" style="display:flex; gap:8px; flex-wrap:wrap; padding:12px 0; border-bottom:1px solid rgba(37,99,235,.08); margin-bottom:16px;">
         <button
           *ngFor="let t of statusTransitions"
           type="button"
@@ -54,26 +51,28 @@ interface StatusTransition {
       </div>
 
       <!-- Meta -->
-      <div class="vendor-form" style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px;">
-        <div>
-          <div style="font-size:11px; color:#6b7280; text-transform:uppercase; margin-bottom:4px;">Type</div>
-          <div>{{ formatType(quotation.type) }}</div>
-        </div>
-        <div>
-          <div style="font-size:11px; color:#6b7280; text-transform:uppercase; margin-bottom:4px;">Status</div>
-          <span class="badge" [class.contacted]="quotation.status === 'ACCEPTED'">{{ quotation.status }}</span>
-        </div>
-        <div>
-          <div style="font-size:11px; color:#6b7280; text-transform:uppercase; margin-bottom:4px;">Title</div>
-          <div>{{ quotation.title }}</div>
-        </div>
-        <div>
-          <div style="font-size:11px; color:#6b7280; text-transform:uppercase; margin-bottom:4px;">Valid Until</div>
-          <div>{{ quotation.validUntil ? (quotation.validUntil | date:'dd MMM yyyy') : '—' }}</div>
-        </div>
-        <div *ngIf="quotation.notes" style="grid-column:1/-1;">
-          <div style="font-size:11px; color:#6b7280; text-transform:uppercase; margin-bottom:4px;">Notes</div>
-          <div style="white-space:pre-wrap;">{{ quotation.notes }}</div>
+      <div class="panel" style="margin-bottom:20px;">
+        <div class="panel-body" style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+          <div>
+            <div style="font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--blue); margin-bottom:4px;">Type</div>
+            <div>{{ formatType(quotation.type) }}</div>
+          </div>
+          <div>
+            <div style="font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--blue); margin-bottom:4px;">Status</div>
+            <span class="badge" [ngClass]="quotation.status.toLowerCase()">{{ quotation.status }}</span>
+          </div>
+          <div>
+            <div style="font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--blue); margin-bottom:4px;">Title</div>
+            <div>{{ quotation.title }}</div>
+          </div>
+          <div>
+            <div style="font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--blue); margin-bottom:4px;">Valid Until</div>
+            <div>{{ quotation.validUntil ? (quotation.validUntil | date:'dd MMM yyyy') : '—' }}</div>
+          </div>
+          <div *ngIf="quotation.notes" style="grid-column:1/-1;">
+            <div style="font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--blue); margin-bottom:4px;">Notes</div>
+            <div style="white-space:pre-wrap; color:var(--text);">{{ quotation.notes }}</div>
+          </div>
         </div>
       </div>
 
@@ -114,7 +113,7 @@ interface StatusTransition {
         </table>
       </div>
 
-      <div *ngIf="errorMessage" class="error" style="margin-top:12px;">{{ errorMessage }}</div>
+      <div *ngIf="errorMessage" class="alert alert-error" style="margin-top:12px;">{{ errorMessage }}</div>
     </div>
 
     <ng-template #loading>

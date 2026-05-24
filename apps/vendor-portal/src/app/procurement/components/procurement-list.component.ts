@@ -13,82 +13,85 @@ import { ProcurementService } from "../services/procurement.service";
     <div class="admin-page">
       <div class="admin-header">
         <h2>Procurement Rounds</h2>
-        <a routerLink="/procurement/scorecard" class="btn-link" style="font-size:13px;">Vendor Scorecard</a>
-        <a routerLink="/procurement/new" class="btn-secondary">+ New Round</a>
+        <div class="admin-header-actions">
+          <a routerLink="/procurement/scorecard" class="btn-secondary">Vendor Scorecard</a>
+          <a routerLink="/procurement/new" class="btn-secondary">+ New Round</a>
+        </div>
       </div>
 
-      <!-- Templates Panel -->
-      <section *ngIf="templates.length" style="margin-bottom:24px; padding:14px 16px; background:#faf5ff; border:1px solid #e9d5ff; border-radius:8px;">
-        <h3 style="font-size:13px; font-weight:600; color:#6d28d9; margin:0 0 12px;">Round Templates ({{ templates.length }})</h3>
-        <div style="display:flex; flex-wrap:wrap; gap:10px;">
-          <div *ngFor="let t of templates"
-               style="display:flex; align-items:center; gap:10px; padding:8px 12px; background:#fff; border:1px solid #e9d5ff; border-radius:6px;">
+      <div *ngIf="templates.length" class="panel" style="margin-bottom:20px;">
+        <div class="panel-header">
+          <h3>Round Templates ({{ templates.length }})</h3>
+        </div>
+        <div class="panel-body" style="display:flex; flex-wrap:wrap; gap:10px;">
+          <div *ngFor="let t of templates" class="template-card">
             <div>
-              <div style="font-size:13px; font-weight:500; color:#374151;">{{ t.title }}</div>
-              <div style="font-size:11px; color:#9ca3af;">{{ templateItemCount(t) }} items</div>
+              <div style="font-weight:600; font-size:13px;">{{ t.title }}</div>
+              <div style="font-size:11px; color:var(--text-faint);">{{ templateItemCount(t) }} items</div>
             </div>
-            <button (click)="useTemplate(t)" [disabled]="usingTemplateId === t.id"
-                    style="font-size:12px; padding:4px 10px; background:#6d28d9; color:#fff; border:none; border-radius:5px; cursor:pointer;">
+            <button (click)="useTemplate(t)" [disabled]="usingTemplateId === t.id" class="btn-primary" style="padding:5px 12px; font-size:12px;">
               {{ usingTemplateId === t.id ? 'Creating...' : 'Use' }}
             </button>
-            <button (click)="deleteTemplate(t)"
-                    style="font-size:12px; padding:4px 8px; background:none; border:1px solid #dc2626; color:#dc2626; border-radius:5px; cursor:pointer;">
-              Delete
+            <button (click)="deleteTemplate(t)" class="btn-danger" style="padding:5px 10px; font-size:12px;">Delete</button>
+          </div>
+          <div *ngIf="templateError" class="alert alert-error" style="width:100%; margin:0;">{{ templateError }}</div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:20px;">
+        <div class="panel-header"><h3>Price History</h3></div>
+        <div class="panel-body">
+          <div style="display:flex; gap:8px; align-items:center; margin-bottom:12px;">
+            <input [(ngModel)]="priceHistoryQuery" (keyup.enter)="searchPriceHistory()"
+                   placeholder="Search item name..." class="inline-input" style="max-width:300px;" />
+            <button (click)="searchPriceHistory()" [disabled]="loadingHistory" class="btn-primary">
+              {{ loadingHistory ? 'Searching...' : 'Search' }}
             </button>
           </div>
-        </div>
-        <div *ngIf="templateError" style="margin-top:8px; font-size:12px; color:#dc2626;">{{ templateError }}</div>
-      </section>
 
-      <!-- Price History Lookup -->
-      <section style="margin-bottom:24px; padding:14px 16px; background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px;">
-        <h3 style="font-size:13px; font-weight:600; color:#0369a1; margin:0 0 10px;">Price History</h3>
-        <div style="display:flex; gap:8px; align-items:center; margin-bottom:12px;">
-          <input [(ngModel)]="priceHistoryQuery" (keyup.enter)="searchPriceHistory()"
-                 placeholder="Search item name..."
-                 style="flex:1; max-width:300px; padding:6px 10px; border:1px solid #bae6fd; border-radius:6px; font-size:13px;" />
-          <button (click)="searchPriceHistory()" [disabled]="loadingHistory"
-                  style="padding:6px 14px; background:#0369a1; color:#fff; border:none; border-radius:6px; font-size:13px; cursor:pointer;">
-            {{ loadingHistory ? 'Searching...' : 'Search' }}
-          </button>
+          <ng-container *ngIf="priceHistory && !loadingHistory">
+            <p *ngIf="priceHistory.rounds.length === 0" class="empty-state">
+              No price data found for "{{ priceHistory.itemName }}".
+            </p>
+            <div *ngIf="priceHistory.rounds.length > 0" class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="min-width:140px;">Vendor</th>
+                    <th *ngFor="let r of priceHistory.rounds" style="text-align:right; min-width:110px;">
+                      {{ r.title }}<br/>
+                      <span style="color:var(--text-faint); font-weight:400;">{{ r.createdAt | date:'dd MMM yy' }}</span>
+                    </th>
+                    <th style="text-align:center; min-width:70px;">Trend</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let v of priceHistory.vendors">
+                    <td style="font-weight:600;">{{ v.shopName }}</td>
+                    <td *ngFor="let p of v.prices" style="text-align:right;"
+                        [style.color]="p != null ? 'var(--text)' : 'var(--text-faint)'">
+                      {{ p != null ? ('₹' + p) : '—' }}
+                    </td>
+                    <td style="text-align:center; vertical-align:middle;">
+                      <ng-container *ngIf="sparklinePoints(v.prices) as pts">
+                        <svg *ngIf="pts.length > 1" width="70" height="28" style="display:inline-block; vertical-align:middle;">
+                          <polyline [attr.points]="pts.join(' ')"
+                                    [attr.stroke]="priceTrend(v.prices) === 'up' ? 'var(--red)' : priceTrend(v.prices) === 'down' ? 'var(--green)' : 'var(--text-faint)'"
+                                    stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                          <circle *ngFor="let pt of sparklineCircles(v.prices)"
+                                  [attr.cx]="pt.x" [attr.cy]="pt.y" r="2.5"
+                                  [attr.fill]="priceTrend(v.prices) === 'up' ? 'var(--red)' : priceTrend(v.prices) === 'down' ? 'var(--green)' : 'var(--text-faint)'"/>
+                        </svg>
+                        <span *ngIf="pts.length < 2" style="color:var(--text-faint); font-size:12px;">—</span>
+                      </ng-container>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </ng-container>
         </div>
-
-        <div *ngIf="priceHistory && !loadingHistory">
-          <div *ngIf="priceHistory.rounds.length === 0" style="font-size:13px; color:#6b7280;">
-            No price data found for "{{ priceHistory.itemName }}".
-          </div>
-          <div *ngIf="priceHistory.rounds.length > 0" style="overflow-x:auto;">
-            <table style="width:100%; border-collapse:collapse; font-size:13px;">
-              <thead>
-                <tr style="background:#e0f2fe;">
-                  <th style="padding:6px 10px; text-align:left; min-width:140px;">Vendor</th>
-                  <th *ngFor="let r of priceHistory.rounds"
-                      style="padding:6px 10px; text-align:right; min-width:110px; font-size:11px;">
-                    {{ r.title }}<br/>
-                    <span style="color:#64748b;">{{ r.createdAt | date:'dd MMM yy' }}</span>
-                  </th>
-                  <th style="padding:6px 10px; text-align:center; min-width:70px; font-size:11px;">Trend</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let v of priceHistory.vendors" style="border-bottom:1px solid #e0f2fe;">
-                  <td style="padding:6px 10px; font-weight:500;">{{ v.shopName }}</td>
-                  <td *ngFor="let p of v.prices" style="padding:6px 10px; text-align:right;"
-                      [style.color]="p != null ? '#374151' : '#d1d5db'">
-                    {{ p != null ? ('₹' + p) : '—' }}
-                  </td>
-                  <td style="padding:6px 10px; text-align:center; font-size:16px;">
-                    <span *ngIf="priceTrend(v.prices) === 'up'" style="color:#dc2626;" title="Price increasing">&#9650;</span>
-                    <span *ngIf="priceTrend(v.prices) === 'down'" style="color:#16a34a;" title="Price decreasing">&#9660;</span>
-                    <span *ngIf="priceTrend(v.prices) === 'flat'" style="color:#9ca3af;" title="Stable">&#8212;</span>
-                    <span *ngIf="priceTrend(v.prices) === 'n/a'" style="color:#d1d5db;">&#8212;</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
+      </div>
 
       <div *ngIf="loading" class="empty-state">Loading...</div>
 
@@ -130,12 +133,6 @@ import { ProcurementService } from "../services/procurement.service";
       </div>
     </div>
   `,
-  styles: [`
-    .badge.open { background:#dbeafe; color:#1d4ed8; }
-    .badge.comparing { background:#fef3c7; color:#92400e; }
-    .badge.awarded { background:#d1fae5; color:#065f46; }
-    .badge.closed { background:#f3f4f6; color:#374151; }
-  `],
 })
 export class ProcurementListComponent implements OnInit {
   rounds: ProcurementRoundDto[] = [];
@@ -218,5 +215,26 @@ export class ProcurementListComponent implements OnInit {
     if (last > prev) return "up";
     if (last < prev) return "down";
     return "flat";
+  }
+
+  sparklinePoints(prices: (number | null)[]): string[] {
+    const filled = prices.filter((p): p is number => p !== null);
+    if (filled.length < 2) return [];
+    const w = 70; const h = 28; const pad = 4;
+    const min = Math.min(...filled);
+    const max = Math.max(...filled);
+    const range = max - min || 1;
+    return filled.map((p, i) => {
+      const x = pad + (i / (filled.length - 1)) * (w - pad * 2);
+      const y = h - pad - ((p - min) / range) * (h - pad * 2);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    });
+  }
+
+  sparklineCircles(prices: (number | null)[]): { x: number; y: number }[] {
+    return this.sparklinePoints(prices).map(pt => {
+      const [x, y] = pt.split(",").map(Number);
+      return { x, y };
+    });
   }
 }
