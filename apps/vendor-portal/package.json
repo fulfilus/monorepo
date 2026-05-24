@@ -9,24 +9,25 @@
     "lint": "ng lint"
   },
   "dependencies": {
-    "@angular/animations": "17.3.12",
-    "@angular/common": "17.3.12",
-    "@angular/compiler": "17.3.12",
-    "@angular/core": "17.3.12",
-    "@angular/forms": "17.3.12",
-    "@angular/platform-browser": "17.3.12",
-    "@angular/platform-browser-dynamic": "17.3.12",
-    "@angular/router": "17.3.12",
+    "@angular/animations": "21.2.14",
+    "@angular/common": "21.2.14",
+    "@angular/compiler": "21.2.14",
+    "@angular/core": "21.2.14",
+    "@angular/forms": "21.2.14",
+    "@angular/platform-browser": "21.2.14",
+    "@angular/platform-browser-dynamic": "21.2.14",
+    "@angular/router": "21.2.14",
     "@fulfilus/shared": "workspace:*",
     "rxjs": "7.8.1",
     "tslib": "2.8.1",
-    "zone.js": "0.14.10"
+    "zone.js": "0.16.2"
   },
   "devDependencies": {
-    "@angular-devkit/build-angular": "17.3.11",
-    "@angular/cli": "17.3.11",
-    "@angular/compiler-cli": "17.3.12",
+    "@angular-devkit/build-angular": "21.2.12",
+    "@angular/build": "^21.2.12",
+    "@angular/cli": "21.2.12",
+    "@angular/compiler-cli": "21.2.14",
     "@types/node": "22.13.1",
-    "typescript": "5.4.5"
+    "typescript": "5.9.3"
   }
 }

@@ -385,7 +385,7 @@ type EntryMode = "manual" | "paste" | "csv";
       <div *ngIf="quoteId" style="margin-top:16px;">
         <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
           <span style="font-size:12px; color:#6b7280;">Status:</span>
-          <span class="badge" [ngClass]="currentStatus?.toLowerCase()">{{ currentStatus }}</span>
+          <span class="badge" [ngClass]="currentStatus.toLowerCase()">{{ currentStatus }}</span>
           <span *ngIf="revisionNumber > 1" style="font-size:12px; color:#9ca3af;">Rev {{ revisionNumber }}</span>
           <span *ngIf="sentAt" style="font-size:12px; color:#6b7280;">Sent {{ sentAt | date:'dd MMM yy' }}</span>
           <span *ngIf="acceptedAt" style="font-size:12px; color:#15803d;">Accepted {{ acceptedAt | date:'dd MMM yy' }}</span>

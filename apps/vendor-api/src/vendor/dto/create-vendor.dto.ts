@@ -41,6 +41,40 @@ export class BankAccountDto {
   bankName: string;
 }
 
+export class VendorDeliveryDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  deliversOwn?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  thirdPartyPickup?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  coverageArea?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  minOrderAmount?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  deliveryCharge?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  chargeNotes?: string;
+}
+
 export class CreateVendorDto {
   @ApiProperty()
   @IsString()
@@ -101,38 +135,4 @@ export class CreateVendorDto {
   @IsOptional()
   @IsString()
   enrichmentJobId?: string;
-}
-
-export class VendorDeliveryDto {
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsBoolean()
-  deliversOwn?: boolean;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsBoolean()
-  thirdPartyPickup?: boolean;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  coverageArea?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  minOrderAmount?: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  deliveryCharge?: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  chargeNotes?: string;
 }

@@ -7,6 +7,8 @@ export interface AgreedRateContractDto {
     unit: string | null;
     minQty: number | null;
     tolerancePct: number;
+    hsnCode: string | null;
+    gstRate: number | null;
     validFrom: string;
     validUntil: string | null;
     notes: string | null;

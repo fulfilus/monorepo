@@ -131,7 +131,7 @@ import { ProcurementService } from "../services/procurement.service";
                     <button type="button"
                             style="font-size:12px; padding:4px 10px; background:#7c3aed; color:#fff; border:none; border-radius:5px; cursor:pointer;"
                             [disabled]="ocrLoading"
-                            (click)="$event.currentTarget.previousElementSibling?.click()">
+                            (click)="triggerPrecedingSibling($event)">
                       {{ ocrLoading ? 'Extracting...' : 'Import Price List' }}
                     </button>
                   </label>
@@ -530,6 +530,10 @@ export class ProcurementDetailComponent implements OnInit, OnDestroy {
       },
       error: () => { this.savingTemplate = false; },
     });
+  }
+
+  triggerPrecedingSibling(event: MouseEvent) {
+    (event.currentTarget as HTMLElement).previousElementSibling?.dispatchEvent(new MouseEvent("click"));
   }
 
   onOcrFileSelected(event: Event) {
