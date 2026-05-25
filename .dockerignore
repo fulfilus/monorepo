@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+**/.angular
+**/.env
+**/.env.*
+!**/.env.example
+**/*.log
+**/.DS_Store
+.git
+.github
+.claude
+docs
+deploy/migrate-data.sh
+deploy/setup-server.sh
