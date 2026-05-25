@@ -1,3 +1,10 @@
+// PasswordCredential is a Chrome/Edge extension not in the standard TS DOM lib
+declare global {
+  interface Window {
+    PasswordCredential?: new (data: { id: string; password: string }) => Credential;
+  }
+}
+
 import { CommonModule } from "@angular/common";
 import { HttpErrorResponse } from "@angular/common/http";
 import { ChangeDetectionStrategy, Component, signal } from "@angular/core";
@@ -21,11 +28,11 @@ type Step = "credentials" | "totp";
           <form [formGroup]="credForm" (ngSubmit)="submitCredentials()">
             <div class="field">
               <label>Username</label>
-              <input type="text" formControlName="username" autocomplete="username" />
+              <input type="text" formControlName="username" name="username" autocomplete="username" />
             </div>
             <div class="field">
               <label>Password</label>
-              <input type="password" formControlName="password" autocomplete="current-password" />
+              <input type="password" formControlName="password" name="password" autocomplete="current-password" />
             </div>
             @if (error()) {
               <p class="error">{{ error() }}</p>
@@ -157,6 +164,7 @@ export class LoginComponent {
           this.tempToken = res.tempToken;
           this.step.set("totp");
         } else {
+          this.storeCredential(username, password);
           this.router.navigate(["/"]);
         }
       },
@@ -165,6 +173,12 @@ export class LoginComponent {
         this.error.set(err.error?.message ?? "Login failed");
       },
     });
+  }
+
+  private storeCredential(username: string, password: string): void {
+    const PC = window.PasswordCredential;
+    if (!("credentials" in navigator) || !PC) return;
+    navigator.credentials.store(new PC({ id: username, password })).catch(() => undefined);
   }
 
   submitTotp(): void {

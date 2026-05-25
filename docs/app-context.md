@@ -220,6 +220,7 @@ fulfilus/
 | `/customers/new` | customer-form | Create customer |
 | `/customers/:id` | customer-form | Edit customer + quote history |
 | `/inbox` | inbound-inbox | WhatsApp review queue, approve/reject |
+| `/settings` | settings-component | 2FA setup/enable/disable, change password (all authenticated users) |
 
 ---
 
@@ -268,6 +269,55 @@ Customer sends text or image to WhatsApp number. Webhook receives message, ident
 - **Reference numbers**: `SQ-YYYYMM-NNNN` — `SourcingService.nextReferenceNumber()` queries last record for the current month and increments.
 - **Revision snapshots**: `SourcingService.update()` always calls `saveRevision()` before overwriting — full quote+items JSON stored in `SourcingQuoteRevision`.
 - **Accounting export streaming**: uses Fastify `res.raw` to write CSV rows incrementally. Frontend triggers download with `window.open(url, "_blank")`.
+- **Google Maps Places — new API**: use `PlaceAutocompleteElement` (not `google.maps.places.Autocomplete` — deprecated for new API keys from March 2025). Load script with `&loading=async` in the URL. Listen for `gmp-select` event; call `place.fetchFields({ fields: ['formattedAddress', 'displayName'] })` to resolve the address.
+- **Login autofill**: `name="username"` and `name="password"` attributes are required for browser credential managers to match form fields. `navigator.credentials.store(new PasswordCredential(...))` triggers the "Save password?" prompt in Chrome after a successful SPA login.
+
+---
+
+## Deployment
+
+Single-server production setup using Docker Compose (Hetzner CX21, ~€6/mo).
+
+### Services
+| Container | Image | Role |
+|---|---|---|
+| `db` | postgres:16-alpine | PostgreSQL with persistent `pgdata` volume |
+| `api` | built from `apps/vendor-api/Dockerfile` | NestJS; runs `prisma migrate deploy` on start |
+| `nginx` | built from `apps/vendor-portal/Dockerfile` | Serves Angular SPA + reverse proxies API routes |
+
+### First-time server setup
+```bash
+# Install Docker on fresh Ubuntu 24.04
+ssh root@<server-ip> "bash -s" < deploy/setup-server.sh
+
+# Clone repo and configure env
+ssh root@<server-ip>
+cd /opt/fulfilus && git clone <repo-url> .
+cp .env.production.example .env && nano .env   # fill SERVER_IP, POSTGRES_PASSWORD, JWT_SECRET, ANTHROPIC_API_KEY
+
+# Start
+docker compose up -d --build
+```
+
+### Data migration (local → server)
+Run once after the server DB container is up:
+```bash
+./deploy/migrate-data.sh <server-ip>
+```
+Dumps local `DATABASE_URL`, uploads via scp, restores into the Docker container.
+
+### Subsequent deploys
+```bash
+ssh root@<server-ip> "cd /opt/fulfilus && git pull && docker compose up -d --build api nginx"
+```
+DB container and its data are untouched.
+
+### SSL (when domain is ready)
+```bash
+apt-get install -y certbot python3-certbot-nginx
+certbot --nginx -d yourdomain.com
+```
+Then update `ALLOWED_ORIGINS` in `.env` and `docker compose restart api`.
 
 ---
 

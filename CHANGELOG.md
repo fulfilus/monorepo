@@ -10,6 +10,14 @@ Format: `## [version] YYYY-MM-DD` with sections Added / Changed / Fixed / Remove
 > Changes merged into `main` but not yet tagged as a release.
 
 ### Added
+- Settings page (`/settings`) — 2FA setup/enable/disable with QR code display, change password with confirm field; accessible from navbar
+- Browser autofill support on login — `name` attributes on credentials inputs, `PasswordCredential` API call after successful login triggers Chrome "Save password?" prompt
+- Docker Compose deployment — single-server production stack: `postgres:16`, NestJS API, Nginx (Angular SPA + reverse proxy); `apps/vendor-api/Dockerfile` and `apps/vendor-portal/Dockerfile` with multi-stage builds
+- `deploy/nginx.conf` — proxies all API routes, serves Angular with `try_files` SPA fallback
+- `deploy/setup-server.sh` — one-shot Docker install on fresh Ubuntu 24.04 (Hetzner CX21)
+- `deploy/migrate-data.sh` — `pg_dump` local → `scp` → `pg_restore` into Docker container
+- `.env.production.example` — production env var template with required/optional annotations
+- Google Maps `PlaceAutocompleteElement` migration — replaced deprecated `google.maps.places.Autocomplete` with new `PlaceAutocompleteElement`; added `loading=async` URL parameter to eliminate sync-load warning
 - JWT authentication system — access tokens (15 min, Bearer) + httpOnly cookie refresh tokens (7 days, DB-stored with rotation); `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `GET /auth/me`, `POST /auth/change-password`
 - TOTP two-factor authentication — `POST /auth/2fa/setup` generates secret + QR code; `POST /auth/2fa/enable` verifies and activates; `POST /auth/2fa/disable` deactivates; `POST /auth/2fa/confirm` completes login flow
 - Account lockout — 5 consecutive failed logins trigger a 15-minute lockout tracked in DB (`failedLoginAttempts`, `lockedUntil`); remaining-attempts feedback on each failure

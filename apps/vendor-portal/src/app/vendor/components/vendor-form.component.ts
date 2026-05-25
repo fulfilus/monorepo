@@ -120,7 +120,8 @@ import { VendorService } from "../services/vendor.service";
           <textarea formControlName="shopDetails" placeholder="Additional details"></textarea>
         </label>
         <label>Location *
-          <input #locationInput formControlName="location" placeholder="Start typing address..." autocomplete="off" />
+          <div #locationContainer class="place-container"></div>
+          <input type="hidden" formControlName="location" />
         </label>
         <label>WhatsApp Number *
           <input formControlName="whatsappNumber" placeholder="+91XXXXXXXXXX" />
@@ -252,7 +253,7 @@ import { VendorService } from "../services/vendor.service";
   `,
 })
 export class VendorFormComponent implements OnInit, AfterViewInit, OnDestroy {
-  @ViewChild("locationInput") locationInputRef!: ElementRef<HTMLInputElement>;
+  @ViewChild("locationContainer") locationContainerRef!: ElementRef<HTMLDivElement>;
 
   form!: FormGroup;
   allCategories = Object.values(VendorCategory);
@@ -328,17 +329,20 @@ export class VendorFormComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngAfterViewInit() {
     this.mapsService.load().then(() => {
-      const autocomplete = new google.maps.places.Autocomplete(
-        this.locationInputRef.nativeElement,
-        { types: ["establishment", "geocode"], fields: ["formatted_address", "name", "geometry"] },
-      );
-      autocomplete.addListener("place_changed", () => {
-        const place = autocomplete.getPlace();
-        const address = place.formatted_address ?? place.name ?? "";
-        this.form.patchValue({ location: address });
+      const pac = new google.maps.places.PlaceAutocompleteElement();
+      this.locationContainerRef.nativeElement.appendChild(pac);
+      pac.addEventListener("gmp-select", async (event) => {
+        const place = event.placePrediction.toPlace();
+        await place.fetchFields({ fields: ["formattedAddress", "displayName"] });
+        this.form.patchValue({ location: place.formattedAddress ?? place.displayName ?? "" });
       });
     }).catch(() => {
-      // Maps unavailable — manual input still works
+      // Maps unavailable — show a plain text input as fallback
+      const fallback = document.createElement("input");
+      fallback.placeholder = "Start typing address...";
+      fallback.style.cssText = "width:100%;box-sizing:border-box;";
+      fallback.addEventListener("input", () => this.form.patchValue({ location: fallback.value }));
+      this.locationContainerRef.nativeElement.appendChild(fallback);
     });
   }
 

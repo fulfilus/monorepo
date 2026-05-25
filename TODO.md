@@ -15,8 +15,13 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **User management** — create, role change, unlock, password reset, delete; admin-only
 - [x] **Invite-only system** — registration endpoint removed; users provisioned by admins
 - [x] **Angular auth layer** — interceptor, guards, login page, admin guard on `/admin/*`
+- [x] **Settings page** — 2FA setup/enable/disable with QR code, change password
+- [x] **Browser autofill** — login form wired with `name`/`autocomplete` attributes + `PasswordCredential` API
+- [x] **Google Maps migration** — `PlaceAutocompleteElement` replaces deprecated `Autocomplete`, `loading=async` added
+- [x] **Docker Compose deployment** — single-server stack for Hetzner CX21; data migration scripts included
 - [ ] **Role-based field visibility** — hide destructive actions (delete, merge, bulk import) from STAFF users in the frontend
 - [ ] **Audit log actor** — `AuditLog.changedBy` currently stores username string; consider linking to `userId` FK for traceability
+- [ ] **SSL / domain** — add Let's Encrypt via certbot-nginx once a domain is pointed at the server
 
 ---
 

@@ -12,9 +12,8 @@ export class GoogleMapsService {
 
     this.loading = new Promise<void>((resolve, reject) => {
       const script = document.createElement("script");
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${environment.googleMapsApiKey}&libraries=places`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${environment.googleMapsApiKey}&libraries=places&loading=async`;
       script.async = true;
-      script.defer = true;
       script.onload = () => { this.loaded = true; resolve(); };
       script.onerror = () => reject(new Error("Google Maps failed to load"));
       document.head.appendChild(script);

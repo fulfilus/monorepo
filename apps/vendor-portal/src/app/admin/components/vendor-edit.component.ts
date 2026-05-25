@@ -32,7 +32,10 @@ import { VendorService } from "../../vendor/services/vendor.service";
         <section>
           <label>Shop Name * <input formControlName="shopName" /></label>
           <label>Shop Details <textarea formControlName="shopDetails"></textarea></label>
-          <label>Location * <input #locationInput formControlName="location" autocomplete="off" /></label>
+          <label>Location *
+            <input formControlName="location" autocomplete="off" placeholder="Current location" />
+            <div #locationContainer class="place-container" style="margin-top:4px;"></div>
+          </label>
           <label>WhatsApp Number * <input formControlName="whatsappNumber" /></label>
           <label>GST Number <input formControlName="gstNumber" /></label>
         </section>
@@ -286,7 +289,7 @@ import { VendorService } from "../../vendor/services/vendor.service";
   `,
 })
 export class VendorEditComponent implements OnInit, AfterViewInit, OnDestroy {
-  @ViewChild("locationInput") locationInputRef!: ElementRef<HTMLInputElement>;
+  @ViewChild("locationContainer") locationContainerRef!: ElementRef<HTMLDivElement>;
 
   vendor: VendorResponseDto | null = null;
   form: FormGroup | null = null;
@@ -511,18 +514,17 @@ export class VendorEditComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit() {
+    if (!this.locationContainerRef) return;
     this.mapsService.load().then(() => {
-      const autocomplete = new google.maps.places.Autocomplete(
-        this.locationInputRef.nativeElement,
-        { types: ["establishment", "geocode"], fields: ["formatted_address", "name", "geometry"] },
-      );
-      autocomplete.addListener("place_changed", () => {
-        const place = autocomplete.getPlace();
-        const address = place.formatted_address ?? place.name ?? "";
-        this.form?.patchValue({ location: address });
+      const pac = new google.maps.places.PlaceAutocompleteElement();
+      this.locationContainerRef.nativeElement.appendChild(pac);
+      pac.addEventListener("gmp-select", async (event) => {
+        const place = event.placePrediction.toPlace();
+        await place.fetchFields({ fields: ["formattedAddress", "displayName"] });
+        this.form?.patchValue({ location: place.formattedAddress ?? place.displayName ?? "" });
       });
     }).catch(() => {
-      // Maps unavailable — manual input still works
+      // Maps unavailable — existing input handles manual entry
     });
   }
 

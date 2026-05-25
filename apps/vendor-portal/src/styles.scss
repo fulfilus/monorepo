@@ -1368,3 +1368,13 @@ body {
   .stats-grid { grid-template-columns: 1fr 1fr; }
   .admin-page table { th:nth-child(n+4), td:nth-child(n+4) { display: none; } }
 }
+
+/* Google Maps PlaceAutocompleteElement — make it match form inputs */
+.place-container {
+  gmp-placeautocomplete {
+    display: block;
+    width: 100%;
+    --gmp-filled-input-border-radius: var(--r, 6px);
+    font-family: inherit;
+  }
+}

@@ -77,6 +77,26 @@ export class AuthService {
     );
   }
 
+  setup2Fa(): Observable<{ secret: string; qrCode: string }> {
+    return this.http.post<{ secret: string; qrCode: string }>(`${BASE}/2fa/setup`, {});
+  }
+
+  enable2Fa(code: string): Observable<{ enabled: boolean }> {
+    return this.http.post<{ enabled: boolean }>(`${BASE}/2fa/enable`, { code }).pipe(
+      tap(() => this._user.update(u => u ? { ...u, twoFaEnabled: true } : u)),
+    );
+  }
+
+  disable2Fa(code: string): Observable<{ disabled: boolean }> {
+    return this.http.post<{ disabled: boolean }>(`${BASE}/2fa/disable`, { code }).pipe(
+      tap(() => this._user.update(u => u ? { ...u, twoFaEnabled: false } : u)),
+    );
+  }
+
+  changePassword(currentPassword: string, newPassword: string): Observable<{ changed: boolean }> {
+    return this.http.post<{ changed: boolean }>(`${BASE}/change-password`, { currentPassword, newPassword });
+  }
+
   private storeToken(token: string): void {
     this._token = token;
     sessionStorage.setItem(TOKEN_KEY, token);

@@ -27,6 +27,7 @@ import { NotificationDto, NotificationService } from "./core/services/notificati
         <ng-container *ngIf="auth.user() as u">
           <span class="nav-user">{{ u.username }} <span class="role-badge" [class.admin]="u.role === 'ADMIN'">{{ u.role }}</span></span>
         </ng-container>
+        <a routerLink="/settings" class="logout-btn" title="Settings">Settings</a>
         <button class="logout-btn" (click)="logout()" title="Sign out">Sign out</button>
       <div class="nav-bell" style="position:relative;">
         <button (click)="toggleNotifications()" class="bell-btn"
