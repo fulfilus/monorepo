@@ -39,6 +39,7 @@ fulfilus/
         users/           User CRUD (admin-only): create, role change, unlock, password reset, delete
         vendor/          Vendor CRUD, enrichment trigger, merge, bulk import
         enrichment/      Google Maps, JustDial, IndiaMart, LLM extraction
+        indiamart-import/ Batch vendor import from IndiaMart (pull API + scraping + optional Claude enrichment)
         quotation/       RFQ / Price List / PO Quote with PDF; HSN lookup; accounting export
         procurement/     Procurement rounds, vendor bids, RFQ blast, templates, barcode lookup
         contracts/       Agreed rate contract CRUD
@@ -143,6 +144,64 @@ fulfilus/
 - `POST /enrich/maps-url` — async Google Maps enrichment → returns jobId
 - `GET /enrich/jobs/:id` — poll enrichment job status
 - `POST /enrich/justdial-url`, `POST /enrich/indiamart-url` — URL-based enrichment
+
+### IndiaMart Batch Import (ADMIN only)
+- `POST /indiamart-import` — bulk-import Hyderabad suppliers from IndiaMart into the vendor DB
+
+  **Body:**
+  ```json
+  {
+    "query": "grocery",
+    "city": "Hyderabad",
+    "maxPages": 5,
+    "enrich": false
+  }
+  ```
+
+  **Response:**
+  ```json
+  {
+    "imported": 43,
+    "skipped": 2,
+    "duplicates": 11,
+    "errors": [],
+    "total": 56
+  }
+  ```
+
+  **How it works:**
+  1. If `INDIAMART_API_KEY` is set: calls IndiaMart's supplier search API (`/search/api/v1/classified`) with `query` + `city`. Falls back to scraping `dir.indiamart.com/city/{city}/{query-slug}-supplier.html` when not set.
+  2. Pages through results (20 per page) up to `maxPages`.
+  3. Deduplicates by `shopName` (case-insensitive) — existing vendors are counted as `duplicates` and skipped.
+  4. If a phone number is not available, stores a synthetic placeholder (`+91000{GLID}`) and notes it in the vendor's `notes` field.
+  5. If `enrich: true`, calls `IndiamartService.enrichFromUrl(supplierUrl)` per vendor — fetches their profile page + `/products.html` catalog, then uses Claude to extract `categories`, `items`, `products` (with price/MOQ/unit/specs), `shopDetails`, and `confidence`. Creates a completed `EnrichmentJob` linked to the vendor. 600ms delay between enrichment calls.
+
+  **Running without enrichment (recommended for first import):**
+  ```bash
+  curl -X POST http://localhost:3000/indiamart-import \
+    -H "Authorization: Bearer <token>" \
+    -H "Content-Type: application/json" \
+    -d '{"query":"grocery","city":"Hyderabad","maxPages":5}'
+  ```
+  Fast (seconds), no AI cost. Vendors land with empty categories and no products. Enrich individually afterwards from the vendor edit page.
+
+  **Running with enrichment:**
+  ```bash
+  curl -X POST http://localhost:3000/indiamart-import \
+    -H "Authorization: Bearer <token>" \
+    -H "Content-Type: application/json" \
+    -d '{"query":"grocery","city":"Hyderabad","maxPages":2,"enrich":true}'
+  ```
+  Keep `maxPages` low (1-2) when enriching — one Claude API call per vendor. Vendors come in with populated categories, shopDetails, and a full product catalog viewable from the vendor edit page.
+
+  **Cost with `enrich: true`:**
+  | Scale | Claude calls | Approx cost |
+  |---|---|---|
+  | 1 page (20 vendors) | 20 | ~$0.15 |
+  | 5 pages (100 vendors) | 100 | ~$0.75 |
+  | 10 pages (200 vendors) | 200 | ~$1.50 |
+
+  Prompt caching (`cache_control: ephemeral`) is applied to the system prompt in `enrichWithLLM`. After the first call, the system prompt tokens (~300) are served at $0.30/MTok instead of $3/MTok for calls within the 5-minute TTL window — effectively free for a bulk run since all calls complete within seconds of each other.
 
 ### Procurement
 - `GET/POST /procurement` — rounds list / create
@@ -271,6 +330,9 @@ Customer sends text or image to WhatsApp number. Webhook receives message, ident
 - **Accounting export streaming**: uses Fastify `res.raw` to write CSV rows incrementally. Frontend triggers download with `window.open(url, "_blank")`.
 - **Google Maps Places — new API**: use `PlaceAutocompleteElement` (not `google.maps.places.Autocomplete` — deprecated for new API keys from March 2025). Load script with `&loading=async` in the URL. Listen for `gmp-select` event; call `place.fetchFields({ fields: ['formattedAddress', 'displayName'] })` to resolve the address.
 - **Login autofill**: `name="username"` and `name="password"` attributes are required for browser credential managers to match form fields. `navigator.credentials.store(new PasswordCredential(...))` triggers the "Save password?" prompt in Chrome after a successful SPA login.
+- **IndiaMart import — phone placeholder**: `whatsappNumber` is non-nullable in the Vendor schema. When IndiaMart doesn't return a phone number, the import stores `+91000{GLID}` (10-digit zero-padded GLID). If no GLID, falls back to `+919{9-random-digits}`. Always noted in `vendor.notes`. Dedup uses shop name only (not phone) for IndiaMart imports.
+- **Prompt caching in bulk enrichment**: `enrichWithLLM` in `indiamart.service.ts` puts the static system prompt in the `system` field with `cache_control: { type: "ephemeral" }`. The same prompt is reused for every vendor in a bulk import run — all calls after the first get cache-read pricing ($0.30/MTok vs $3/MTok). The 5-minute TTL is never reached since a full run completes in under 60 seconds.
+- **IndiaMart enrichment job storage**: when `enrich: true`, a completed `EnrichmentJob` is created (source `INDIAMART`, status `COMPLETED`) with the full `rawPayload` including `products[]` (name, priceRange, moq, unit, specs). View it from the vendor edit page — the same enrichment job UI used for Google Maps enrichment.
 
 ---
 
@@ -331,6 +393,8 @@ JWT_SECRET                Secret for signing JWT access tokens
 
 # Optional (features limited if absent)
 GOOGLE_MAPS_SERVER_KEY    Places API key (server-side enrichment)
+INDIAMART_API_KEY         IndiaMart GLID — enables direct API access for POST /indiamart-import;
+                          without it the endpoint falls back to HTML scraping (may be rate-limited)
 ALLOWED_ORIGINS           Comma-separated CORS origins (default: http://localhost:4200)
 WHATSAPP_API_TOKEN        Meta Graph API Bearer token
 WHATSAPP_PHONE_NUMBER_ID  WhatsApp Business phone number ID

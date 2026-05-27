@@ -10,6 +10,10 @@ Format: `## [version] YYYY-MM-DD` with sections Added / Changed / Fixed / Remove
 > Changes merged into `main` but not yet tagged as a release.
 
 ### Added
+- IndiaMart batch vendor import — `POST /indiamart-import` (ADMIN); searches IndiaMart for suppliers by query + city (default: Hyderabad); paginated; deduplicates by name; synthetic phone placeholder when number unavailable
+- IndiaMart AI enrichment flag — `enrich: true` on import fetches each supplier's profile + product catalog, runs Claude extraction (categories, items, pricing/MOQ), creates linked `EnrichmentJob`; viewable from vendor edit page
+- Prompt caching on `enrichWithLLM` — system prompt moved to `system` field with `cache_control: ephemeral`; saves ~90% on system-token cost for bulk runs (cache hit $0.30/MTok vs $3/MTok)
+- IndiaMart import UI — "Import from IndiaMart" panel in vendor list with query, city, max-pages inputs and "Enrich with AI" checkbox; shows imported/duplicates/errors after run
 - Settings page (`/settings`) — 2FA setup/enable/disable with QR code display, change password with confirm field; accessible from navbar
 - Browser autofill support on login — `name` attributes on credentials inputs, `PasswordCredential` API call after successful login triggers Chrome "Save password?" prompt
 - Docker Compose deployment — single-server production stack: `postgres:16`, NestJS API, Nginx (Angular SPA + reverse proxy); `apps/vendor-api/Dockerfile` and `apps/vendor-portal/Dockerfile` with multi-stage builds

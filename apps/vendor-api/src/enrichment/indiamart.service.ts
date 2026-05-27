@@ -380,7 +380,8 @@ ${catalogSummary}`;
     const msg = await this.anthropic.messages.create({
       model: MODEL_ID,
       max_tokens: 1024,
-      messages: [{ role: "user", content: `${systemPrompt}\n\n${userMessage}` }],
+      system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
+      messages: [{ role: "user", content: userMessage }],
     });
 
     const textBlock = msg.content.find(b => b.type === "text");
