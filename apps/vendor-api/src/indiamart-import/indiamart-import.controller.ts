@@ -20,6 +20,6 @@ export class IndiamartImportController {
   run(@Body() dto: IndiamartImportDto, @Req() req: FastifyRequest) {
     const city = dto.city ?? "Hyderabad";
     const maxPages = dto.maxPages ?? 5;
-    return this.importService.runImport(dto.query, city, maxPages, actor(req));
+    return this.importService.runImport(dto.query, city, maxPages, actor(req), dto.enrich ?? false);
   }
 }

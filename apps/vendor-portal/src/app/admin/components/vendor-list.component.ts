@@ -41,6 +41,10 @@ import { VendorListFilters, VendorService } from "../../vendor/services/vendor.s
           <label style="flex:1; min-width:140px;">Max Pages (20/page)
             <input type="number" [(ngModel)]="imMaxPages" min="1" max="50" [disabled]="imLoading" />
           </label>
+          <label style="display:flex; align-items:center; gap:6px; min-width:220px; font-weight:normal; cursor:pointer;">
+            <input type="checkbox" [(ngModel)]="imEnrich" [disabled]="imLoading" />
+            <span>Enrich with AI (products + categories)</span>
+          </label>
           <div style="display:flex; gap:8px; align-items:flex-end;">
             <button (click)="runIndiamartImport()" [disabled]="!imQuery.trim() || imLoading" class="btn-primary">
               {{ imLoading ? 'Importing...' : 'Run Import' }}
@@ -49,7 +53,8 @@ import { VendorListFilters, VendorService } from "../../vendor/services/vendor.s
           </div>
         </div>
         <p style="font-size:12px; color:var(--text-faint); margin-top:8px;">
-          Set <code>INDIAMART_API_KEY</code> in the API .env for direct API access. Without it, falls back to HTML scraping (may be rate-limited).
+          Set <code>INDIAMART_API_KEY</code> in the API .env for direct API access. Without it, falls back to HTML scraping.
+          AI enrichment fetches each supplier's product catalog and uses Claude to extract categories and pricing. One API call per vendor — use a lower page count when enabled.
         </p>
         <div *ngIf="indiamartResult" class="import-result" [class.ok]="!indiamartResult.errors.length" [class.error]="indiamartResult.errors.length > 0" style="margin-top:12px;">
           Found: <strong>{{ indiamartResult.total }}</strong> &nbsp;|&nbsp;
@@ -214,6 +219,7 @@ export class VendorListComponent implements OnInit, OnDestroy {
   imQuery = "";
   imCity = "Hyderabad";
   imMaxPages = 5;
+  imEnrich = false;
   imLoading = false;
   indiamartResult: { imported: number; skipped: number; duplicates: number; errors: { name: string; reason: string }[]; total: number } | null = null;
   indiamartError = "";
@@ -366,7 +372,7 @@ export class VendorListComponent implements OnInit, OnDestroy {
     this.imLoading = true;
     this.indiamartResult = null;
     this.indiamartError = "";
-    this.vendorService.importFromIndiamart(this.imQuery.trim(), this.imCity || "Hyderabad", this.imMaxPages)
+    this.vendorService.importFromIndiamart(this.imQuery.trim(), this.imCity || "Hyderabad", this.imMaxPages, this.imEnrich)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: result => {

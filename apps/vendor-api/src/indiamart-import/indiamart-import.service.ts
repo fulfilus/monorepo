@@ -1,4 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { EnrichmentSource } from "@fulfilus/shared";
+import { Prisma } from "@prisma/client";
+import { IndiamartService } from "../enrichment/indiamart.service";
 import { PrismaService } from "../common/prisma.service";
 import type { IndiaMartCompany, IndiamartImportResult } from "./indiamart-import.dto";
 
@@ -36,9 +39,12 @@ export class IndiamartImportService {
   private readonly logger = new Logger(IndiamartImportService.name);
   private readonly apiKey = process.env.INDIAMART_API_KEY;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly indiamartService: IndiamartService,
+  ) {}
 
-  async runImport(query: string, city: string, maxPages: number, importedBy: string): Promise<IndiamartImportResult> {
+  async runImport(query: string, city: string, maxPages: number, importedBy: string, enrich = false): Promise<IndiamartImportResult> {
     this.logger.log(`[indiamart-import] starting: query="${query}" city="${city}" maxPages=${maxPages}`);
 
     const allCompanies: IndiaMartCompany[] = [];
@@ -67,9 +73,9 @@ export class IndiamartImportService {
       if (page < maxPages) await this.delay(800);
     }
 
-    this.logger.log(`[indiamart-import] total candidates: ${allCompanies.length}`);
+    this.logger.log(`[indiamart-import] total candidates: ${allCompanies.length}, enrich=${enrich}`);
 
-    return this.upsertVendors(allCompanies, importedBy);
+    return this.upsertVendors(allCompanies, importedBy, enrich);
   }
 
   private async fetchViaApi(query: string, city: string, page: number): Promise<IndiaMartCompany[]> {
@@ -207,7 +213,7 @@ export class IndiamartImportService {
     return companies;
   }
 
-  private async upsertVendors(companies: IndiaMartCompany[], importedBy: string): Promise<IndiamartImportResult> {
+  private async upsertVendors(companies: IndiaMartCompany[], importedBy: string, enrich: boolean): Promise<IndiamartImportResult> {
     let imported = 0;
     let skipped = 0;
     let duplicates = 0;
@@ -230,22 +236,56 @@ export class IndiamartImportService {
           continue;
         }
 
-        const whatsappNumber = this.resolvePhone(company);
+        // Optionally enrich via IndiaMart profile + Claude before creating the vendor
+        let enrichResult: Awaited<ReturnType<IndiamartService["enrichFromUrl"]>> | null = null;
+        if (enrich && company.supplierUrl) {
+          try {
+            enrichResult = await this.indiamartService.enrichFromUrl(company.supplierUrl);
+            this.logger.log(`[indiamart-import] enriched "${company.name}" — confidence ${enrichResult.confidence}, items ${enrichResult.items?.length ?? 0}, products ${enrichResult.products?.length ?? 0}`);
+          } catch (enrichErr) {
+            this.logger.warn(`[indiamart-import] enrich failed for "${company.name}": ${String(enrichErr)}`);
+          }
+          await this.delay(600); // respect Claude + IndiaMart rate limits
+        }
 
-        await this.prisma.vendor.create({
+        const whatsappNumber = this.resolvePhone(company);
+        const categories = enrichResult?.categories?.length ? enrichResult.categories : [];
+        const shopDetails = enrichResult?.shopDetails || undefined;
+        const notes = enrichResult
+          ? this.buildEnrichedNotes(company, enrichResult)
+          : this.buildNotes(company);
+
+        const vendor = await this.prisma.vendor.create({
           data: {
-            shopName: company.name,
-            location: company.address || "Hyderabad",
+            shopName: enrichResult?.shopName || company.name,
+            location: enrichResult?.location || company.address || "Hyderabad",
             whatsappNumber,
             gstNumber: company.gstNumber,
             contactStatus: "NOT_CONTACTED",
-            notes: this.buildNotes(company),
-            categories: [],
+            shopDetails,
+            notes,
+            categories,
             auditLogs: {
               create: { action: "INDIAMART_IMPORT", changedBy: importedBy },
             },
           },
         });
+
+        // Persist the enrichment job so products are visible in the UI
+        if (enrichResult) {
+          await this.prisma.enrichmentJob.create({
+            data: {
+              vendorId: vendor.id,
+              source: EnrichmentSource.INDIAMART,
+              status: "COMPLETED",
+              confidenceScore: enrichResult.confidence,
+              modelId: enrichResult.modelUsed ?? "claude-sonnet-4-6",
+              rawPayload: JSON.parse(JSON.stringify(enrichResult)) as Prisma.InputJsonValue,
+              startedAt: new Date(),
+              completedAt: new Date(),
+            },
+          });
+        }
 
         imported++;
       } catch (err) {
@@ -264,6 +304,16 @@ export class IndiamartImportService {
       errors,
       total: companies.length,
     };
+  }
+
+  private buildEnrichedNotes(company: IndiaMartCompany, enriched: Awaited<ReturnType<IndiamartService["enrichFromUrl"]>>): string {
+    const parts: string[] = ["Imported from IndiaMart (AI enriched)."];
+    if (company.supplierUrl) parts.push(`Profile: ${company.supplierUrl}`);
+    if (enriched.items?.length) parts.push(`Products: ${enriched.items.slice(0, 15).join(", ")}.`);
+    if (enriched.notes) parts.push(enriched.notes);
+    if (enriched.insight) parts.push(enriched.insight);
+    if (!company.phone) parts.push("Phone not available — number is synthetic placeholder.");
+    return parts.join(" ");
   }
 
   /** Build a stable synthetic phone for vendors with no real number */

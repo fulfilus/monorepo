@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, IsString, Max, Min } from "class-validator";
+import { IsBoolean, IsNumber, IsOptional, IsString, Max, Min } from "class-validator";
 import { Type } from "class-transformer";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
@@ -19,6 +19,14 @@ export class IndiamartImportDto {
   @Max(50)
   @Type(() => Number)
   maxPages?: number;
+
+  @ApiPropertyOptional({
+    default: false,
+    description: "If true, fetches each supplier's IndiaMart profile via Claude to extract products, categories, and pricing. Slow — one Claude API call per vendor.",
+  })
+  @IsOptional()
+  @IsBoolean()
+  enrich?: boolean;
 }
 
 export interface IndiaMartCompany {
