@@ -14,3 +14,7 @@ dist/
 
 # Local Claude Code personal config
 .claude/claude.local.md
+
+# DB dumps
+deploy/fulfilus-data.dump
+deploy/fulfilus-data.sql

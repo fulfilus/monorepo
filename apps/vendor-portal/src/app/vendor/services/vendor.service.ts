@@ -114,6 +114,13 @@ export class VendorService {
     return this.http.post<{ survivingId: string; survivingName: string; deletedId: string; deletedName: string }>(`${this.base}/merge`, { sourceId, targetId });
   }
 
+  importFromIndiamart(query: string, city: string, maxPages: number): Observable<{ imported: number; skipped: number; duplicates: number; errors: { name: string; reason: string }[]; total: number }> {
+    return this.http.post<{ imported: number; skipped: number; duplicates: number; errors: { name: string; reason: string }[]; total: number }>(
+      `${environment.apiUrl}/indiamart-import`,
+      { query, city, maxPages },
+    );
+  }
+
   listVendorInvoices(vendorId: string): Observable<{ id: string; invoiceNumber: string; amount: number; dueAt: string | null; paidAt: string | null; notes: string | null; quotationId: string | null }[]> {
     return this.http.get<{ id: string; invoiceNumber: string; amount: number; dueAt: string | null; paidAt: string | null; notes: string | null; quotationId: string | null }[]>(`${this.base}/${vendorId}/invoices`);
   }

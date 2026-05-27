@@ -18,9 +18,10 @@ import { CustomerModule } from "./customer/customer.module";
 import { InboundModule } from "./inbound/inbound.module";
 import { ContractsModule } from "./contracts/contracts.module";
 import { NotificationsModule } from "./notifications/notifications.module";
+import { IndiamartImportModule } from "./indiamart-import/indiamart-import.module";
 
 @Module({
-  imports: [ScheduleModule.forRoot(), PrismaModule, AuthModule, HealthModule, UsersModule, VendorModule, EnrichmentModule, QuotationModule, WhatsappModule, DashboardModule, DocumentModule, ContactLogModule, ProcurementModule, SourcingModule, CustomerModule, InboundModule, ContractsModule, NotificationsModule],
+  imports: [ScheduleModule.forRoot(), PrismaModule, AuthModule, HealthModule, UsersModule, VendorModule, EnrichmentModule, QuotationModule, WhatsappModule, DashboardModule, DocumentModule, ContactLogModule, ProcurementModule, SourcingModule, CustomerModule, InboundModule, ContractsModule, NotificationsModule, IndiamartImportModule],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

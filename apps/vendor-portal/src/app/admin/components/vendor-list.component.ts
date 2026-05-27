@@ -23,8 +23,44 @@ import { VendorListFilters, VendorService } from "../../vendor/services/vendor.s
             <span class="btn-secondary" [style.opacity]="importing ? '0.6' : '1'">{{ importing ? 'Importing...' : 'Import CSV' }}</span>
           </label>
           <a routerLink="/procurement/scorecard" class="btn-secondary">Vendor Scorecard</a>
+          <button (click)="showIndiamartImport = !showIndiamartImport; indiamartResult = null; indiamartError = ''" class="btn-secondary">Import from IndiaMart</button>
           <a routerLink="/" class="btn-secondary">+ Add Vendor</a>
         </div>
+      </div>
+
+      <div *ngIf="showIndiamartImport" class="merge-panel">
+        <h3>Import Vendors from IndiaMart</h3>
+        <p>Searches IndiaMart for suppliers in the specified city and adds them to the vendor list. Duplicates (matched by name) are skipped.</p>
+        <div class="merge-fields" style="flex-wrap:wrap; gap:12px;">
+          <label style="flex:2; min-width:200px;">Search Query
+            <input [(ngModel)]="imQuery" placeholder="e.g. grocery, food supplier, vegetable wholesale" [disabled]="imLoading" />
+          </label>
+          <label style="flex:1; min-width:140px;">City
+            <input [(ngModel)]="imCity" placeholder="Hyderabad" [disabled]="imLoading" />
+          </label>
+          <label style="flex:1; min-width:140px;">Max Pages (20/page)
+            <input type="number" [(ngModel)]="imMaxPages" min="1" max="50" [disabled]="imLoading" />
+          </label>
+          <div style="display:flex; gap:8px; align-items:flex-end;">
+            <button (click)="runIndiamartImport()" [disabled]="!imQuery.trim() || imLoading" class="btn-primary">
+              {{ imLoading ? 'Importing...' : 'Run Import' }}
+            </button>
+            <button (click)="showIndiamartImport = false; indiamartResult = null" class="btn-ghost">Cancel</button>
+          </div>
+        </div>
+        <p style="font-size:12px; color:var(--text-faint); margin-top:8px;">
+          Set <code>INDIAMART_API_KEY</code> in the API .env for direct API access. Without it, falls back to HTML scraping (may be rate-limited).
+        </p>
+        <div *ngIf="indiamartResult" class="import-result" [class.ok]="!indiamartResult.errors.length" [class.error]="indiamartResult.errors.length > 0" style="margin-top:12px;">
+          Found: <strong>{{ indiamartResult.total }}</strong> &nbsp;|&nbsp;
+          Imported: <strong>{{ indiamartResult.imported }}</strong> &nbsp;|&nbsp;
+          Duplicates skipped: <strong>{{ indiamartResult.duplicates }}</strong> &nbsp;|&nbsp;
+          Errors: <strong>{{ indiamartResult.errors.length }}</strong>
+          <div *ngIf="indiamartResult.errors.length" class="import-errors" style="margin-top:6px;">
+            <div *ngFor="let e of indiamartResult.errors.slice(0, 10)">{{ e.name }}: {{ e.reason }}</div>
+          </div>
+        </div>
+        <div *ngIf="indiamartError" class="alert alert-error" style="margin-top:8px;">{{ indiamartError }}</div>
       </div>
 
       <div *ngIf="importResult" class="import-result" [class.ok]="!importResult.errors.length" [class.error]="importResult.errors.length > 0">
@@ -174,6 +210,14 @@ export class VendorListComponent implements OnInit, OnDestroy {
   mergeResult: { survivingId: string; survivingName: string; deletedId: string; deletedName: string } | null = null;
   mergeError = "";
 
+  showIndiamartImport = false;
+  imQuery = "";
+  imCity = "Hyderabad";
+  imMaxPages = 5;
+  imLoading = false;
+  indiamartResult: { imported: number; skipped: number; duplicates: number; errors: { name: string; reason: string }[]; total: number } | null = null;
+  indiamartError = "";
+
   get allSelected(): boolean {
     return this.vendors.length > 0 && this.vendors.every(v => this.selectedIds.has(v.id));
   }
@@ -315,6 +359,26 @@ export class VendorListComponent implements OnInit, OnDestroy {
       },
       error: () => { this.importing = false; input.value = ""; },
     });
+  }
+
+  runIndiamartImport() {
+    if (!this.imQuery.trim() || this.imLoading) return;
+    this.imLoading = true;
+    this.indiamartResult = null;
+    this.indiamartError = "";
+    this.vendorService.importFromIndiamart(this.imQuery.trim(), this.imCity || "Hyderabad", this.imMaxPages)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: result => {
+          this.indiamartResult = result;
+          this.imLoading = false;
+          if (result.imported > 0) this.reload$.next();
+        },
+        error: (err: unknown) => {
+          this.indiamartError = (err as { error?: { message?: string } })?.error?.message ?? "Import failed.";
+          this.imLoading = false;
+        },
+      });
   }
 
   exportCsv() {
